@@ -1,32 +1,29 @@
+import { cleanEnhancedPrompt, parseDataUrl, readApiError } from "./apiShared";
 import {
   buildPromptEnhancerImageInstruction,
   buildPromptEnhancerVideoInstruction,
   type PromptEnhancerMode
-} from "./prompts/enhancer";
+} from "../prompts/enhancer";
 import {
   buildGeminiImageInstruction,
   buildGeminiVideoInstruction,
   parseGeminiImageResponse,
   parseGeminiVideoResponse
-} from "./promptTemplates";
+} from "../prompts/promptTemplates";
 import {
   type DetectedImageInfo,
   type DetectedVideoInfo,
   type ExtractedFrame,
   type TargetModelId
-} from "./types";
-import { resizeImageDataUrl } from "./imageUtils";
+} from "../types";
+import { resizeImageDataUrl } from "../media/imageUtils";
 
-function dataUrlToBase64(dataUrl: string): { mimeType: string; base64: string } {
-  const match = dataUrl.match(/^data:(.+?);base64,(.+)$/);
-  if (!match) {
-    throw new Error("不支持的帧格式。");
-  }
-
-  return {
-    mimeType: match[1],
-    base64: match[2]
-  };
+function dataUrlToBase64(dataUrl: string): {
+  mimeType: string;
+  base64: string;
+} {
+  const { mimeType, data } = parseDataUrl(dataUrl);
+  return { mimeType, base64: data };
 }
 
 function readOpenAIError(payload: unknown): string | null {
@@ -45,13 +42,16 @@ function readOpenAIText(payload: unknown): string {
   if (payload && typeof payload === "object") {
     const obj = payload as Record<string, unknown>;
 
-    // Check for API-level error in response body
     const apiError = readOpenAIError(payload);
     if (apiError) {
       throw new Error(apiError);
     }
 
-    if ("choices" in obj && Array.isArray(obj.choices) && obj.choices.length > 0) {
+    if (
+      "choices" in obj &&
+      Array.isArray(obj.choices) &&
+      obj.choices.length > 0
+    ) {
       const choice = obj.choices[0];
       if (choice && typeof choice === "object") {
         const c = choice as Record<string, unknown>;
@@ -66,14 +66,6 @@ function readOpenAIText(payload: unknown): string {
   throw new Error("模型未返回有效的提示词，请重试。");
 }
 
-function cleanEnhancedPrompt(text: string): string {
-  return text
-    .replace(/^```(?:\w+)?\s*/i, "")
-    .replace(/```$/i, "")
-    .replace(/^(?:enhanced\s+prompt|video\s+prompt|image\s+prompt|final\s+prompt|prompt)\s*:\s*/i, "")
-    .trim();
-}
-
 export async function analyzeVideoFrames({
   apiKey,
   baseUrl,
@@ -81,7 +73,7 @@ export async function analyzeVideoFrames({
   targetModel,
   frames,
   videoInfo,
-  signal
+  signal,
 }: {
   apiKey: string;
   baseUrl: string;
@@ -94,22 +86,23 @@ export async function analyzeVideoFrames({
   const endpoint = `${baseUrl}/chat/completions`;
   const instruction = buildGeminiVideoInstruction(targetModel, videoInfo);
 
-  const content: Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }> = [
-    { type: "text", text: instruction }
-  ];
+  const content: Array<
+    | { type: "text"; text: string }
+    | { type: "image_url"; image_url: { url: string } }
+  > = [{ type: "text", text: instruction }];
 
   for (let index = 0; index < frames.length; index++) {
     const frame = frames[index];
     const { mimeType, base64 } = dataUrlToBase64(frame.dataUrl);
     content.push({
       type: "text",
-      text: `Frame ${index + 1} at ${frame.timestamp.toFixed(2)} seconds`
+      text: `Frame ${index + 1} at ${frame.timestamp.toFixed(2)} seconds`,
     });
     content.push({
       type: "image_url",
       image_url: {
-        url: `data:${mimeType};base64,${base64}`
-      }
+        url: `data:${mimeType};base64,${base64}`,
+      },
     });
   }
 
@@ -117,20 +110,20 @@ export async function analyzeVideoFrames({
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`
+      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
       model: modelName,
       messages: [
         {
           role: "user",
-          content
-        }
+          content,
+        },
       ],
       temperature: 0.4,
-      top_p: 0.9
+      top_p: 0.9,
     }),
-    signal
+    signal,
   });
 
   const payload = (await response.json()) as unknown;
@@ -152,7 +145,7 @@ export async function analyzeImage({
   targetModel,
   imageDataUrl,
   imageInfo,
-  signal
+  signal,
 }: {
   apiKey: string;
   baseUrl: string;
@@ -172,7 +165,7 @@ export async function analyzeImage({
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`
+      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
       model: modelName,
@@ -184,17 +177,17 @@ export async function analyzeImage({
             {
               type: "image_url",
               image_url: {
-                url: `data:${mimeType};base64,${base64}`
-              }
-            }
-          ]
-        }
+                url: `data:${mimeType};base64,${base64}`,
+              },
+            },
+          ],
+        },
       ],
       temperature: 0.4,
       top_p: 0.9,
-      max_tokens: 32768
+      max_tokens: 32768,
     }),
-    signal
+    signal,
   });
 
   let payload: unknown;
@@ -204,7 +197,9 @@ export async function analyzeImage({
   } else {
     const rawText = await response.text();
     if (!response.ok) {
-      throw new Error(`API 请求失败 (${response.status}): ${rawText.slice(0, 300)}`);
+      throw new Error(
+        `API 请求失败 (${response.status}): ${rawText.slice(0, 300)}`
+      );
     }
     throw new Error(`API 返回了非JSON响应: ${rawText.slice(0, 300)}`);
   }
@@ -228,7 +223,7 @@ export async function analyzeImageStream({
   imageDataUrl,
   imageInfo,
   signal,
-  onProgress
+  onProgress,
 }: {
   apiKey: string;
   baseUrl: string;
@@ -249,7 +244,7 @@ export async function analyzeImageStream({
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`
+      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
       model: modelName,
@@ -261,23 +256,25 @@ export async function analyzeImageStream({
             {
               type: "image_url",
               image_url: {
-                url: `data:${mimeType};base64,${base64}`
-              }
-            }
-          ]
-        }
+                url: `data:${mimeType};base64,${base64}`,
+              },
+            },
+          ],
+        },
       ],
       temperature: 0.4,
       top_p: 0.9,
       max_tokens: 32768,
-      stream: true
+      stream: true,
     }),
-    signal
+    signal,
   });
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => "");
-    throw new Error(`API 请求失败 (${response.status}): ${errorText.slice(0, 300)}`);
+    throw new Error(
+      `API 请求失败 (${response.status}): ${errorText.slice(0, 300)}`
+    );
   }
 
   const reader = response.body?.getReader();
@@ -344,7 +341,7 @@ export async function enhancePrompt({
   modelName,
   mode,
   idea,
-  signal
+  signal,
 }: {
   apiKey: string;
   baseUrl: string;
@@ -365,20 +362,20 @@ export async function enhancePrompt({
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: modelName,
         messages: [
           {
             role: "user",
-            content: buildPromptEnhancerVideoInstruction(trimmedIdea)
-          }
+            content: buildPromptEnhancerVideoInstruction(trimmedIdea),
+          },
         ],
         temperature: 0.45,
-        top_p: 0.9
+        top_p: 0.9,
       }),
-      signal
+      signal,
     });
 
     const payload = (await response.json()) as unknown;
@@ -397,20 +394,20 @@ export async function enhancePrompt({
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`
+      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
       model: modelName,
       messages: [
         {
           role: "user",
-          content: buildPromptEnhancerImageInstruction(trimmedIdea)
-        }
+          content: buildPromptEnhancerImageInstruction(trimmedIdea),
+        },
       ],
       temperature: 0.55,
-      top_p: 0.9
+      top_p: 0.9,
     }),
-    signal
+    signal,
   });
 
   const payload = (await response.json()) as unknown;

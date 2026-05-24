@@ -1,9 +1,10 @@
+import { scaleDimensions } from "./dimensions";
 import type {
   DetectedVideoInfo,
   ExtractedFrame,
   FrameExtractionOptions,
   FrameSamplingMode
-} from "./types";
+} from "../types";
 
 const METADATA_WAIT_TIMEOUT_MS = 2_000;
 
@@ -158,23 +159,6 @@ function buildFallbackTimestamps(video: HTMLVideoElement): number[] {
   return dedupeTimestamps(
     [-3, -1.5, 0, 1.5, 3].map((offset) => Math.max(0, currentTime + offset))
   );
-}
-
-function scaleDimensions(
-  width: number,
-  height: number,
-  maxSide: number
-): { width: number; height: number } {
-  const longestEdge = Math.max(width, height);
-  if (longestEdge <= maxSide) {
-    return { width, height };
-  }
-
-  const ratio = maxSide / longestEdge;
-  return {
-    width: Math.max(1, Math.round(width * ratio)),
-    height: Math.max(1, Math.round(height * ratio))
-  };
 }
 
 function drawVideoFrame(

@@ -10,7 +10,7 @@ import {
   type ExtractedFrame,
   type PromptEnhancerMode,
   type TargetModelId
-} from "./types";
+} from "../types";
 
 export async function analyzeVideoFrames({
   apiKey,

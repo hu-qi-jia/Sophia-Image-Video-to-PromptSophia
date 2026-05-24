@@ -1,8 +1,9 @@
+import { cleanEnhancedPrompt, parseDataUrl, readApiError } from "./apiShared";
 import {
   buildPromptEnhancerImageInstruction,
   buildPromptEnhancerVideoInstruction,
   type PromptEnhancerMode
-} from "./prompts/enhancer";
+} from "../prompts/enhancer";
 import {
   GEMINI_IMAGE_RESPONSE_SCHEMA,
   GEMINI_VIDEO_RESPONSE_SCHEMA,
@@ -10,25 +11,21 @@ import {
   buildGeminiVideoInstruction,
   parseGeminiImageResponse,
   parseGeminiVideoResponse
-} from "./promptTemplates";
+} from "../prompts/promptTemplates";
 import {
   GEMINI_ANALYSIS_MODEL,
   type DetectedImageInfo,
   type DetectedVideoInfo,
   type ExtractedFrame,
   type TargetModelId
-} from "./types";
+} from "../types";
 
-function dataUrlToInlinePart(dataUrl: string): { mimeType: string; data: string } {
-  const match = dataUrl.match(/^data:(.+?);base64,(.+)$/);
-  if (!match) {
-    throw new Error("不支持的帧格式。");
-  }
-
-  return {
-    mimeType: match[1],
-    data: match[2]
-  };
+function dataUrlToInlinePart(dataUrl: string): {
+  mimeType: string;
+  data: string;
+} {
+  const { mimeType, data } = parseDataUrl(dataUrl);
+  return { mimeType, data };
 }
 
 function inferMimeTypeFromUrl(imageUrl: string): string {
@@ -58,7 +55,7 @@ function readGeminiError(payload: unknown): string | null {
     return payload.error.message;
   }
 
-  return null;
+  return readApiError(payload);
 }
 
 function readGeminiText(payload: unknown): string {
@@ -83,7 +80,12 @@ function readGeminiText(payload: unknown): string {
         }
 
         return candidate.content.parts.flatMap((part: unknown) => {
-          if (part && typeof part === "object" && "text" in part && typeof part.text === "string") {
+          if (
+            part &&
+            typeof part === "object" &&
+            "text" in part &&
+            typeof part.text === "string"
+          ) {
             return [part.text];
           }
           return [];
@@ -119,11 +121,11 @@ export async function analyzeVideoFramesWithGemini({
 
     return [
       {
-        text: `Frame ${index + 1} at ${frame.timestamp.toFixed(2)} seconds`
+        text: `Frame ${index + 1} at ${frame.timestamp.toFixed(2)} seconds`,
       },
       {
-        inline_data: inlineData
-      }
+        inline_data: inlineData,
+      },
     ];
   });
 
@@ -131,22 +133,22 @@ export async function analyzeVideoFramesWithGemini({
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-goog-api-key": apiKey
+      "x-goog-api-key": apiKey,
     },
     body: JSON.stringify({
       contents: [
         {
           role: "user",
-          parts: [{ text: instruction }, ...frameParts]
-        }
+          parts: [{ text: instruction }, ...frameParts],
+        },
       ],
       generationConfig: {
         responseMimeType: "application/json",
         responseSchema: GEMINI_VIDEO_RESPONSE_SCHEMA,
         temperature: 0.4,
-        topP: 0.9
-      }
-    })
+        topP: 0.9,
+      },
+    }),
   });
 
   const payload = (await response.json()) as unknown;
@@ -166,7 +168,7 @@ export async function analyzeImageWithGemini({
   targetModel,
   imageUrl,
   imageDataUrl,
-  imageInfo
+  imageInfo,
 }: {
   apiKey: string;
   targetModel: TargetModelId;
@@ -180,12 +182,12 @@ export async function analyzeImageWithGemini({
     ? {
         file_data: {
           mime_type: inferMimeTypeFromUrl(imageUrl),
-          file_uri: imageUrl
-        }
+          file_uri: imageUrl,
+        },
       }
     : imageDataUrl
       ? {
-          inline_data: dataUrlToInlinePart(imageDataUrl)
+          inline_data: dataUrlToInlinePart(imageDataUrl),
         }
       : null;
 
@@ -197,25 +199,22 @@ export async function analyzeImageWithGemini({
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-goog-api-key": apiKey
+      "x-goog-api-key": apiKey,
     },
     body: JSON.stringify({
       contents: [
         {
           role: "user",
-          parts: [
-            { text: instruction },
-            imagePart
-          ]
-        }
+          parts: [{ text: instruction }, imagePart],
+        },
       ],
       generationConfig: {
         responseMimeType: "application/json",
         responseSchema: GEMINI_IMAGE_RESPONSE_SCHEMA,
         temperature: 0.4,
-        topP: 0.9
-      }
-    })
+        topP: 0.9,
+      },
+    }),
   });
 
   const payload = (await response.json()) as unknown;
@@ -230,18 +229,10 @@ export async function analyzeImageWithGemini({
   return parseGeminiImageResponse(text);
 }
 
-function cleanEnhancedPrompt(text: string): string {
-  return text
-    .replace(/^```(?:\w+)?\s*/i, "")
-    .replace(/```$/i, "")
-    .replace(/^(?:enhanced\s+prompt|video\s+prompt|image\s+prompt|final\s+prompt|prompt)\s*:\s*/i, "")
-    .trim();
-}
-
 export async function enhancePromptWithGemini({
   apiKey,
   mode,
-  idea
+  idea,
 }: {
   apiKey: string;
   mode: PromptEnhancerMode;
@@ -259,22 +250,22 @@ export async function enhancePromptWithGemini({
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-goog-api-key": apiKey
+        "x-goog-api-key": apiKey,
       },
       body: JSON.stringify({
         contents: [
           {
             role: "user",
-            parts: [{ text: buildPromptEnhancerVideoInstruction(trimmedIdea) }]
-          }
+            parts: [{ text: buildPromptEnhancerVideoInstruction(trimmedIdea) }],
+          },
         ],
         generationConfig: {
           responseMimeType: "application/json",
           responseSchema: GEMINI_VIDEO_RESPONSE_SCHEMA,
           temperature: 0.45,
-          topP: 0.9
-        }
-      })
+          topP: 0.9,
+        },
+      }),
     });
 
     const payload = (await response.json()) as unknown;
@@ -293,20 +284,20 @@ export async function enhancePromptWithGemini({
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-goog-api-key": apiKey
+      "x-goog-api-key": apiKey,
     },
     body: JSON.stringify({
       contents: [
         {
           role: "user",
-          parts: [{ text: buildPromptEnhancerImageInstruction(trimmedIdea) }]
-        }
+          parts: [{ text: buildPromptEnhancerImageInstruction(trimmedIdea) }],
+        },
       ],
       generationConfig: {
         temperature: 0.55,
-        topP: 0.9
-      }
-    })
+        topP: 0.9,
+      },
+    }),
   });
 
   const payload = (await response.json()) as unknown;

@@ -1,5 +1,5 @@
-import { analyzeImageStream } from "../lib/aiClient";
-import { fetchImageAsDataUrl } from "../lib/imageUtils";
+import { analyzeImageStream } from "../lib/clients/aiClient";
+import { fetchImageAsDataUrl } from "../lib/media/imageUtils";
 import {
   clearAnalysisState,
   createAnalysisState,

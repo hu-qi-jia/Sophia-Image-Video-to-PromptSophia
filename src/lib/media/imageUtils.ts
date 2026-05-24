@@ -1,21 +1,10 @@
-function scaleDimensions(
-  width: number,
-  height: number,
-  maxSide: number
-): { width: number; height: number } {
-  const longestEdge = Math.max(width, height);
-  if (longestEdge <= maxSide) {
-    return { width, height };
-  }
+import { scaleDimensions } from "./dimensions";
 
-  const ratio = maxSide / longestEdge;
-  return {
-    width: Math.max(1, Math.round(width * ratio)),
-    height: Math.max(1, Math.round(height * ratio))
-  };
-}
+export { scaleDimensions };
 
-async function createImageElement(sourceUrl: string): Promise<HTMLImageElement> {
+export async function createImageElement(
+  sourceUrl: string
+): Promise<HTMLImageElement> {
   const image = new Image();
   image.src = sourceUrl;
   await new Promise<void>((resolve, reject) => {
@@ -31,7 +20,11 @@ export async function resizeImageDataUrl(
   quality: number = 0.7
 ): Promise<string> {
   const img = await createImageElement(dataUrl);
-  const { width, height } = scaleDimensions(img.naturalWidth, img.naturalHeight, maxSide);
+  const { width, height } = scaleDimensions(
+    img.naturalWidth,
+    img.naturalHeight,
+    maxSide
+  );
 
   if (width === img.naturalWidth && height === img.naturalHeight) {
     return dataUrl;
