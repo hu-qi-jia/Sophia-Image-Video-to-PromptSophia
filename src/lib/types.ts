@@ -1,3 +1,19 @@
+export const PROVIDER_TYPES = [
+  { id: "openai", label: "OpenAI 兼容" },
+  { id: "gemini", label: "Gemini" }
+] as const;
+
+export type ProviderType = (typeof PROVIDER_TYPES)[number]["id"];
+
+export type ModelProvider = {
+  id: string;
+  name: string;
+  providerType: ProviderType;
+  apiKey: string;
+  baseUrl: string;
+  modelName: string;
+};
+
 export const TARGET_MODELS = [
   { id: "seedance-2.0", label: "Seedance 2.0" },
   { id: "generic-ai-video", label: "其他" }
@@ -78,9 +94,8 @@ export type AnalysisState = {
 };
 
 export type StoredSettings = {
-  apiKey: string;
-  baseUrl: string;
-  modelName: string;
+  models: ModelProvider[];
+  activeModelId: string;
   targetModel: TargetModelId;
   frameSamplingMode: FrameSamplingMode;
   promptFormat: PromptFormat;

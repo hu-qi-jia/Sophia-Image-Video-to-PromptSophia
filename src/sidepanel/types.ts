@@ -56,6 +56,7 @@ export type IVTabData = {
   displayFormat: PromptFormat;
   copyLabel: string;
   uploadError: string | null;
+  isExpanded: boolean;
   analysisState: AnalysisState;
   editedResultText: string | null;
 };
@@ -73,6 +74,7 @@ export function createInitialIVTabData(targetModel: TargetModelId = DEFAULT_TARG
     displayFormat: "json",
     copyLabel: "复制",
     uploadError: null,
+    isExpanded: false,
     analysisState: { phase: "idle", statusText: "结果将在此呈现", targetModel, tabId: null, updatedAt: Date.now() } as AnalysisState,
     editedResultText: null,
   };
@@ -117,36 +119,7 @@ export function buildLocalImageInfo(image: HTMLImageElement, fileName: string): 
   };
 }
 
-export async function createVideoElement(sourceUrl: string): Promise<HTMLVideoElement> {
-  const video = document.createElement("video");
-  video.src = sourceUrl;
-  video.preload = "auto";
-  video.muted = true;
-  video.playsInline = true;
-  video.crossOrigin = "anonymous";
-  await new Promise<void>((resolve, reject) => {
-    const onLoaded = () => { cleanup(); resolve(); };
-    const onError = () => { cleanup(); reject(new Error("无法加载所选视频文件。")); };
-    const cleanup = () => {
-      video.removeEventListener("loadeddata", onLoaded);
-      video.removeEventListener("error", onError);
-    };
-    video.addEventListener("loadeddata", onLoaded, { once: true });
-    video.addEventListener("error", onError, { once: true });
-    video.load();
-  });
-  return video;
-}
-
-export async function createImageElement(sourceUrl: string): Promise<HTMLImageElement> {
-  const image = new Image();
-  image.src = sourceUrl;
-  await new Promise<void>((resolve, reject) => {
-    image.onload = () => resolve();
-    image.onerror = () => reject(new Error("无法加载所选图片文件。"));
-  });
-  return image;
-}
+export { createVideoElement, createImageElement } from "../lib/media/imageUtils";
 
 export async function compressThumbnailDataUrl(dataUrl?: string): Promise<string | undefined> {
   if (!dataUrl) return undefined;

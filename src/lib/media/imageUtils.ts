@@ -14,6 +14,29 @@ export async function createImageElement(
   return image;
 }
 
+export async function createVideoElement(
+  sourceUrl: string
+): Promise<HTMLVideoElement> {
+  const video = document.createElement("video");
+  video.src = sourceUrl;
+  video.preload = "auto";
+  video.muted = true;
+  video.playsInline = true;
+  video.crossOrigin = "anonymous";
+  await new Promise<void>((resolve, reject) => {
+    const onLoaded = () => { cleanup(); resolve(); };
+    const onError = () => { cleanup(); reject(new Error("无法加载所选视频文件。")); };
+    const cleanup = () => {
+      video.removeEventListener("loadeddata", onLoaded);
+      video.removeEventListener("error", onError);
+    };
+    video.addEventListener("loadeddata", onLoaded, { once: true });
+    video.addEventListener("error", onError, { once: true });
+    video.load();
+  });
+  return video;
+}
+
 export async function resizeImageDataUrl(
   dataUrl: string,
   maxSide: number = 1536,

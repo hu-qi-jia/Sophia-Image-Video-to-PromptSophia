@@ -5,17 +5,18 @@ import { readFileAsDataUrl } from "../lib/media/imageUtils";
 import {
   createAnalysisState,
   defaultSettings,
-  deleteApiKey,
+  deleteModel,
   deletePromptHistoryItem,
+  getActiveModel,
   getPromptHistory,
   getSettings,
-  saveApiKey,
-  saveBaseUrl,
   saveFrameSamplingMode,
-  saveModelName,
+  saveModels,
   savePromptHistoryItem,
+  setActiveModel,
 } from "../lib/storage";
 import type {
+  ModelProvider,
   PromptHistoryItem,
   StoredSettings,
   RuntimeMessage,
@@ -39,13 +40,11 @@ import {
   compressThumbnailDataUrl,
   createHistoryId,
   isApiKeyRequiredState,
+  getMediaAspectRatio,
 } from "./types";
 
 export function useAppState() {
   const [settings, setSettings] = useState<StoredSettings>(defaultSettings);
-  const [apiKeyInput, setApiKeyInput] = useState("");
-  const [baseUrlInput, setBaseUrlInput] = useState("https://api.openai.com/v1");
-  const [modelNameInput, setModelNameInput] = useState("");
   const [historyItems, setHistoryItems] = useState<PromptHistoryItem[]>([]);
   const [activeTabId, setActiveTabId] = useState<number | null>(null);
   const [ivTabData, setIvTabData] = useState<Record<"image" | "video", IVTabData>>({
@@ -55,7 +54,6 @@ export function useAppState() {
   const [activeTab, setActiveTab] = useState<TabId>("image");
   const [subView, setSubView] = useState<SubView>("main");
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [showApiKey, setShowApiKey] = useState(false);
   const [enhancerMode, setEnhancerMode] = useState<"video" | "image">("video");
   const [enhancerInput, setEnhancerInput] = useState("");
   const [enhancerResultMode, setEnhancerResultMode] = useState<"empty" | "loading" | "text" | "error">("empty");
@@ -81,10 +79,11 @@ export function useAppState() {
   const currentIVTab: "image" | "video" = activeTab === "video" ? "video" : "image";
   const currentData = ivTabData[currentIVTab];
 
-  const hasApiKey =
-    settings.apiKey.trim().length > 0 &&
-    settings.baseUrl.trim().length > 0 &&
-    settings.modelName.trim().length > 0;
+  const activeModel = getActiveModel(settings);
+  const hasApiKey = activeModel !== null
+    && activeModel.apiKey.trim().length > 0
+    && activeModel.modelName.trim().length > 0
+    && (activeModel.providerType === "gemini" || activeModel.baseUrl.trim().length > 0);
   const hasMedia = currentData.mediaSource.kind !== "none";
   const isAnalyzing =
     currentData.isAnalyzingLocal ||
@@ -106,9 +105,6 @@ export function useAppState() {
     void (async () => {
       const [nextSettings, nextHistory] = await Promise.all([getSettings(), getPromptHistory()]);
       setSettings(nextSettings);
-      setApiKeyInput(nextSettings.apiKey);
-      setBaseUrlInput(nextSettings.baseUrl);
-      setModelNameInput(nextSettings.modelName);
       setHistoryItems(nextHistory);
 
       const context = (await chrome.runtime.sendMessage({
@@ -144,9 +140,6 @@ export function useAppState() {
         const next = changes["video2prompt:settings"].newValue as Partial<StoredSettings> | undefined;
         const merged = { ...defaultSettings, ...(next ?? {}) };
         setSettings(merged);
-        setApiKeyInput(merged.apiKey);
-        setBaseUrlInput(merged.baseUrl);
-        setModelNameInput(merged.modelName);
       }
       if (changes["video2prompt:history"]) {
         setHistoryItems((changes["video2prompt:history"].newValue as PromptHistoryItem[] | undefined) ?? []);
@@ -273,6 +266,7 @@ export function useAppState() {
       promptResult: null,
       copyLabel: "复制",
       editedResultText: null,
+      isExpanded: false,
     });
   }
 
@@ -311,9 +305,10 @@ export function useAppState() {
         const videoInfo = buildLocalVideoInfo(video, mediaSrc.fileName);
         const frames = await extractFrames(video, { mode: settings.frameSamplingMode });
         const result = await analyzeVideoFrames({
-          apiKey: settings.apiKey,
-          baseUrl: settings.baseUrl,
-          modelName: settings.modelName,
+          apiKey: activeModel!.apiKey,
+          baseUrl: activeModel!.baseUrl,
+          modelName: activeModel!.modelName,
+          providerType: activeModel!.providerType,
           targetModel: settings.targetModel,
           frames,
           videoInfo,
@@ -377,9 +372,10 @@ export function useAppState() {
         ]);
         const imageInfo = buildLocalImageInfo(image, mediaSrc.fileName);
         const result = await analyzeImageStream({
-          apiKey: settings.apiKey,
-          baseUrl: settings.baseUrl,
-          modelName: settings.modelName,
+          apiKey: activeModel!.apiKey,
+          baseUrl: activeModel!.baseUrl,
+          modelName: activeModel!.modelName,
+          providerType: activeModel!.providerType,
           targetModel: settings.targetModel,
           imageDataUrl,
           imageInfo,
@@ -476,6 +472,38 @@ export function useAppState() {
     }
   }
 
+  async function loadLocalFile(file: File, tab: "image" | "video") {
+    if (localObjectUrlRefs.current[tab]) URL.revokeObjectURL(localObjectUrlRefs.current[tab]!);
+    const objectUrl = URL.createObjectURL(file);
+    localObjectUrlRefs.current[tab] = objectUrl;
+
+    if (file.type.startsWith("image/")) {
+      const image = await createImageElement(objectUrl);
+      const imageInfo = buildLocalImageInfo(image, file.name);
+      updateIVTab(tab, {
+        mediaSource: { kind: "local-image", objectUrl, fileName: file.name, file, imageInfo },
+        analysisState: createAnalysisState(activeTabId, "ready", "图片已就绪", settings.targetModel, {
+          mediaType: "image",
+          sourceType: "local",
+          imageInfo,
+          previewFrameUrl: objectUrl,
+        }),
+      });
+    } else {
+      const video = await createVideoElement(objectUrl);
+      const videoInfo = buildLocalVideoInfo(video, file.name);
+      updateIVTab(tab, {
+        mediaSource: { kind: "local-video", objectUrl, fileName: file.name, videoInfo },
+        analysisState: createAnalysisState(activeTabId, "ready", "视频已就绪", settings.targetModel, {
+          mediaType: "video",
+          sourceType: "local",
+          videoInfo,
+        }),
+      });
+    }
+    resetIVTabResult(tab);
+  }
+
   async function handleLocalUpload(event: ChangeEvent<HTMLInputElement>, expectedType: "image" | "video") {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -495,37 +523,7 @@ export function useAppState() {
     }
 
     updateIVTab(tab, { uploadError: null });
-
-    if (localObjectUrlRefs.current[tab]) URL.revokeObjectURL(localObjectUrlRefs.current[tab]!);
-    const objectUrl = URL.createObjectURL(file);
-    localObjectUrlRefs.current[tab] = objectUrl;
-
-    if (file.type.startsWith("image/")) {
-      const image = await createImageElement(objectUrl);
-      const imageInfo = buildLocalImageInfo(image, file.name);
-      updateIVTab(tab, {
-        mediaSource: { kind: "local-image", objectUrl, fileName: file.name, file, imageInfo },
-        analysisState: createAnalysisState(activeTabId, "ready", "图片已就绪", settings.targetModel, {
-          mediaType: "image",
-          sourceType: "local",
-          imageInfo,
-          previewFrameUrl: objectUrl,
-        }),
-      });
-    } else {
-      const video = await createVideoElement(objectUrl);
-      const videoInfo = buildLocalVideoInfo(video, file.name);
-      updateIVTab(tab, {
-        mediaSource: { kind: "local-video", objectUrl, fileName: file.name, videoInfo },
-        analysisState: createAnalysisState(activeTabId, "ready", "视频已就绪", settings.targetModel, {
-          mediaType: "video",
-          sourceType: "local",
-          videoInfo,
-        }),
-      });
-    }
-
-    resetIVTabResult(tab);
+    await loadLocalFile(file, tab);
     event.target.value = "";
   }
 
@@ -542,35 +540,7 @@ export function useAppState() {
       return;
     }
 
-    if (localObjectUrlRefs.current[tab]) URL.revokeObjectURL(localObjectUrlRefs.current[tab]!);
-    const objectUrl = URL.createObjectURL(file);
-    localObjectUrlRefs.current[tab] = objectUrl;
-
-    if (file.type.startsWith("image/")) {
-      const image = await createImageElement(objectUrl);
-      const imageInfo = buildLocalImageInfo(image, file.name);
-      updateIVTab(tab, {
-        mediaSource: { kind: "local-image", objectUrl, fileName: file.name, file, imageInfo },
-        analysisState: createAnalysisState(activeTabId, "ready", "图片已就绪", settings.targetModel, {
-          mediaType: "image",
-          sourceType: "local",
-          imageInfo,
-          previewFrameUrl: objectUrl,
-        }),
-      });
-    } else {
-      const video = await createVideoElement(objectUrl);
-      const videoInfo = buildLocalVideoInfo(video, file.name);
-      updateIVTab(tab, {
-        mediaSource: { kind: "local-video", objectUrl, fileName: file.name, videoInfo },
-        analysisState: createAnalysisState(activeTabId, "ready", "视频已就绪", settings.targetModel, {
-          mediaType: "video",
-          sourceType: "local",
-          videoInfo,
-        }),
-      });
-    }
-    resetIVTabResult(tab);
+    await loadLocalFile(file, tab);
   }
 
   async function handleCopy() {
@@ -637,26 +607,33 @@ export function useAppState() {
     } catch { /* clipboard denied */ }
   }
 
-  async function handleSaveApiKey() {
-    let nextSettings = await saveApiKey(apiKeyInput);
-    nextSettings = await saveBaseUrl(baseUrlInput);
-    nextSettings = await saveModelName(modelNameInput);
+  async function handleSelectModel(modelId: string) {
+    const nextSettings = await setActiveModel(modelId);
     setSettings(nextSettings);
-    setApiKeyInput(nextSettings.apiKey);
-    setBaseUrlInput(nextSettings.baseUrl);
-    setModelNameInput(nextSettings.modelName);
-    showToast("配置已保存");
+    showToast("已切换模型");
   }
 
-  async function handleDeleteSavedApiKey() {
-    const confirmed = window.confirm("确定删除已保存的模型配置吗？\n重新配置后才能继续使用。");
-    if (!confirmed) return;
-    const nextSettings = await deleteApiKey();
+  async function handleAddModel(model: ModelProvider) {
+    const nextModels = [...settings.models, model];
+    const nextSettings = await saveModels(nextModels);
+    const withActive = await setActiveModel(model.id);
+    setSettings(withActive);
+    showToast("模型已添加");
+  }
+
+  async function handleUpdateModel(model: ModelProvider) {
+    const nextModels = settings.models.map((m) => (m.id === model.id ? model : m));
+    const nextSettings = await saveModels(nextModels);
     setSettings(nextSettings);
-    setApiKeyInput("");
-    setBaseUrlInput(defaultSettings.baseUrl);
-    setModelNameInput("");
-    showToast("配置已删除");
+    showToast("模型已更新");
+  }
+
+  async function handleDeleteModel(modelId: string) {
+    const confirmed = window.confirm("确定删除此模型配置吗？");
+    if (!confirmed) return;
+    const nextSettings = await deleteModel(modelId);
+    setSettings(nextSettings);
+    showToast("模型已删除");
   }
 
   async function handleFrameSamplingModeChange(mode: import("../lib/types").FrameSamplingMode) {
@@ -689,9 +666,10 @@ export function useAppState() {
 
     try {
       const result = await enhancePrompt({
-        apiKey: settings.apiKey,
-        baseUrl: settings.baseUrl,
-        modelName: settings.modelName,
+        apiKey: activeModel!.apiKey,
+        baseUrl: activeModel!.baseUrl,
+        modelName: activeModel!.modelName,
+        providerType: activeModel!.providerType,
         mode: enhancerMode,
         idea: enhancerInput,
         signal: controller.signal,
@@ -761,32 +739,17 @@ export function useAppState() {
     return null;
   }, [currentData.mediaSource]);
 
-  const currentMediaAspectRatio = useMemo(() => {
-    if (currentData.mediaSource.kind === "local-video" && currentData.mediaSource.videoInfo?.videoWidth && currentData.mediaSource.videoInfo?.videoHeight) {
-      return `${currentData.mediaSource.videoInfo.videoWidth} / ${currentData.mediaSource.videoInfo.videoHeight}`;
-    }
-    if (currentData.mediaSource.kind === "local-image" && currentData.mediaSource.imageInfo?.imageWidth && currentData.mediaSource.imageInfo?.imageHeight) {
-      return `${currentData.mediaSource.imageInfo.imageWidth} / ${currentData.mediaSource.imageInfo.imageHeight}`;
-    }
-    if (currentData.mediaSource.kind === "web-image" && currentData.mediaSource.imageInfo?.imageWidth && currentData.mediaSource.imageInfo?.imageHeight) {
-      return `${currentData.mediaSource.imageInfo.imageWidth} / ${currentData.mediaSource.imageInfo.imageHeight}`;
-    }
-    return undefined;
-  }, [currentData.mediaSource]);
+  const currentMediaAspectRatio = useMemo(() => getMediaAspectRatio(currentData.mediaSource), [currentData.mediaSource]);
 
   return {
     state: {
       settings,
-      apiKeyInput,
-      baseUrlInput,
-      modelNameInput,
       historyItems,
       activeTabId,
       ivTabData,
       activeTab,
       subView,
       statusMessage,
-      showApiKey,
       enhancerMode,
       enhancerInput,
       enhancerResultMode,
@@ -814,12 +777,8 @@ export function useAppState() {
       videoFileRef,
     },
     actions: {
-      setApiKeyInput,
-      setBaseUrlInput,
-      setModelNameInput,
       setActiveTab,
       setSubView,
-      setShowApiKey,
       setEnhancerMode,
       setEnhancerInput,
       setEditingText,
@@ -837,8 +796,10 @@ export function useAppState() {
       handleEditStart,
       handleEditClose,
       handleEditCopy,
-      handleSaveApiKey,
-      handleDeleteSavedApiKey,
+      handleSelectModel,
+      handleAddModel,
+      handleUpdateModel,
+      handleDeleteModel,
       handleFrameSamplingModeChange,
       resetEnhancerResult,
       handleEnhancePrompt,

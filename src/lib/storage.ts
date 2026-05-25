@@ -6,8 +6,10 @@ import {
   type AnalysisPhase,
   type AnalysisState,
   type FrameSamplingMode,
+  type ModelProvider,
   type PromptFormat,
   type PromptHistoryItem,
+  type ProviderType,
   type StoredSettings,
   type TargetModelId
 } from "./types";
@@ -17,9 +19,8 @@ const ANALYSIS_KEY_PREFIX = "video2prompt:analysis:";
 const HISTORY_KEY = "video2prompt:history";
 
 export const defaultSettings: StoredSettings = {
-  apiKey: "",
-  baseUrl: "https://api.openai.com/v1",
-  modelName: "",
+  models: [],
+  activeModelId: "",
   targetModel: DEFAULT_TARGET_MODEL,
   frameSamplingMode: DEFAULT_FRAME_SAMPLING_MODE,
   promptFormat: DEFAULT_PROMPT_FORMAT
@@ -76,17 +77,43 @@ export async function getSettings(): Promise<StoredSettings> {
     return { ...defaultSettings };
   }
 
-  const legacyApiKey = (raw.openaiApiKey as string) || (raw.geminiApiKey as string) || "";
-  const legacyBaseUrl = (raw.openaiBaseUrl as string) || defaultSettings.baseUrl;
+  const rawModels = raw.models as ModelProvider[] | undefined;
+  const hasModels = Array.isArray(rawModels) && rawModels.length > 0;
+
+  const models: ModelProvider[] = hasModels
+    ? rawModels
+    : migrateLegacyModel(raw);
 
   return {
-    apiKey: (raw.apiKey as string) ?? legacyApiKey,
-    baseUrl: (raw.baseUrl as string) ?? legacyBaseUrl,
-    modelName: (raw.modelName as string) ?? defaultSettings.modelName,
+    models,
+    activeModelId: (raw.activeModelId as string) ?? (models.length > 0 ? models[0].id : ""),
     targetModel: normalizeTargetModel(raw.targetModel),
     frameSamplingMode: normalizeFrameSamplingMode(raw.frameSamplingMode),
     promptFormat: normalizePromptFormat(raw.promptFormat)
   };
+}
+
+function migrateLegacyModel(raw: Record<string, unknown>): ModelProvider[] {
+  const legacyApiKey =
+    (raw.apiKey as string) ||
+    (raw.openaiApiKey as string) ||
+    (raw.geminiApiKey as string) ||
+    "";
+  const legacyBaseUrl = (raw.baseUrl as string) || (raw.openaiBaseUrl as string) || "";
+  const legacyModelName = (raw.modelName as string) || "";
+
+  if (!legacyApiKey && !legacyBaseUrl && !legacyModelName) {
+    return [];
+  }
+
+  return [{
+    id: crypto.randomUUID(),
+    name: "默认模型",
+    providerType: "openai" as ProviderType,
+    apiKey: legacyApiKey,
+    baseUrl: legacyBaseUrl || "https://api.openai.com/v1",
+    modelName: legacyModelName
+  }];
 }
 
 export async function saveSettings(settings: StoredSettings): Promise<void> {
@@ -95,32 +122,32 @@ export async function saveSettings(settings: StoredSettings): Promise<void> {
   });
 }
 
-export async function saveApiKey(apiKey: string): Promise<StoredSettings> {
+export function getActiveModel(settings: StoredSettings): ModelProvider | null {
+  if (!settings.activeModelId || settings.models.length === 0) return null;
+  return settings.models.find((m) => m.id === settings.activeModelId) ?? null;
+}
+
+export async function saveModels(models: ModelProvider[]): Promise<StoredSettings> {
   const current = await getSettings();
-  const next = { ...current, apiKey: apiKey.trim() };
+  const nextActiveId = models.find((m) => m.id === current.activeModelId)
+    ? current.activeModelId
+    : models.length > 0 ? models[0].id : "";
+  const next = { ...current, models, activeModelId: nextActiveId };
   await saveSettings(next);
   return next;
 }
 
-export async function deleteApiKey(): Promise<StoredSettings> {
+export async function setActiveModel(modelId: string): Promise<StoredSettings> {
   const current = await getSettings();
-  const next = { ...current, apiKey: "" };
+  const next = { ...current, activeModelId: modelId };
   await saveSettings(next);
   return next;
 }
 
-export async function saveBaseUrl(baseUrl: string): Promise<StoredSettings> {
+export async function deleteModel(modelId: string): Promise<StoredSettings> {
   const current = await getSettings();
-  const next = { ...current, baseUrl: baseUrl.trim() || defaultSettings.baseUrl };
-  await saveSettings(next);
-  return next;
-}
-
-export async function saveModelName(modelName: string): Promise<StoredSettings> {
-  const current = await getSettings();
-  const next = { ...current, modelName: modelName.trim() };
-  await saveSettings(next);
-  return next;
+  const nextModels = current.models.filter((m) => m.id !== modelId);
+  return saveModels(nextModels);
 }
 
 export async function saveTargetModel(

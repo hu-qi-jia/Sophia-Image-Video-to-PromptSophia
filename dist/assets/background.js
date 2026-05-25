@@ -1,9 +1,30 @@
+// src/lib/clients/apiShared.ts
+function parseDataUrl(dataUrl) {
+  const match = dataUrl.match(/^data:(.+?);base64,(.+)$/);
+  if (!match) {
+    throw new Error("\u4E0D\u652F\u6301\u7684\u5E27\u683C\u5F0F\u3002");
+  }
+  return { mimeType: match[1], data: match[2] };
+}
+function readApiError(payload) {
+  if (payload && typeof payload === "object") {
+    const obj = payload;
+    if (obj.error && typeof obj.error === "object") {
+      const err = obj.error;
+      if (typeof err.message === "string") return err.message;
+    }
+    if (typeof obj.message === "string") return obj.message;
+  }
+  return null;
+}
+
 // src/lib/types.ts
 var TARGET_MODELS = [
   { id: "seedance-2.0", label: "Seedance 2.0" },
   { id: "generic-ai-video", label: "\u5176\u4ED6" }
 ];
 var DEFAULT_TARGET_MODEL = "seedance-2.0";
+var GEMINI_ANALYSIS_MODEL = "gemini-2.5-flash";
 var DEFAULT_FRAME_SAMPLING_MODE = "standard";
 var DEFAULT_PROMPT_FORMAT = "json";
 
@@ -11,6 +32,29 @@ var DEFAULT_PROMPT_FORMAT = "json";
 function targetModelLabel(targetModel) {
   return TARGET_MODELS.find((model) => model.id === targetModel)?.label ?? targetModel;
 }
+var GEMINI_IMAGE_RESPONSE_SCHEMA = {
+  type: "object",
+  properties: {
+    image_archetype: { type: "object" },
+    subjects: { type: "array" },
+    composition: { type: "object" },
+    lighting_and_color: { type: "object" },
+    imperfections: { type: "object" },
+    shortPrompt: { type: "string" },
+    detailedPrompt: { type: "string" },
+    negativePrompt: { type: "string" }
+  },
+  required: [
+    "image_archetype",
+    "subjects",
+    "composition",
+    "lighting_and_color",
+    "imperfections",
+    "shortPrompt",
+    "detailedPrompt",
+    "negativePrompt"
+  ]
+};
 function buildGeminiImageInstruction(targetModel, imageInfo) {
   const modelLabel = targetModelLabel(targetModel);
   return `You are a professional visual reverse-engineering system. Analyze the image and output structured JSON for accurate image recreation.
@@ -106,7 +150,7 @@ Return valid JSON only.
 }`;
 }
 
-// src/lib/promptTemplates.ts
+// src/lib/parsers/jsonRepair.ts
 function extractJsonSubstring(rawText) {
   const start = rawText.indexOf("{");
   if (start === -1) return null;
@@ -144,7 +188,6 @@ function repairTruncatedJson(text) {
   const stack = [];
   let inString = false;
   let escaped = false;
-  let lastStringStart = -1;
   for (let i = start; i < text.length; i++) {
     const ch = text[i];
     if (inString) {
@@ -159,7 +202,6 @@ function repairTruncatedJson(text) {
     }
     if (ch === '"') {
       inString = true;
-      lastStringStart = i;
       continue;
     }
     if (ch === "{" || ch === "[") {
@@ -203,17 +245,21 @@ function parseGeminiJson(rawText) {
       }
       const preview = rawText.slice(0, 300);
       const tail = rawText.slice(-200);
-      console.error("[parseGeminiJson] No valid JSON found. Length:", rawText.length, "Head:", preview, "Tail:", tail);
-      throw new Error(`\u6A21\u578B\u8FD4\u56DEJSON\u88AB\u622A\u65AD\u6216\u4E0D\u5B8C\u6574\u3002(E1) \u957F\u5EA6:${rawText.length} \u5F00\u5934:${preview}... \u7ED3\u5C3E:...${tail}`);
+      throw new Error(
+        `\u6A21\u578B\u8FD4\u56DEJSON\u88AB\u622A\u65AD\u6216\u4E0D\u5B8C\u6574\u3002(E1) \u957F\u5EA6:${rawText.length} \u5F00\u5934:${preview}... \u7ED3\u5C3E:...${tail}`
+      );
     }
     try {
       return JSON.parse(jsonSubstring);
     } catch {
-      console.error("[parseGeminiJson] Invalid JSON substring:", jsonSubstring.slice(0, 500));
-      throw new Error(`\u6A21\u578B\u8FD4\u56DE\u4E86\u65E0\u6548JSON\u3002(E2) \u622A\u53D6\u5185\u5BB9: ${jsonSubstring.slice(0, 200)}`);
+      throw new Error(
+        `\u6A21\u578B\u8FD4\u56DE\u4E86\u65E0\u6548JSON\u3002(E2) \u622A\u53D6\u5185\u5BB9: ${jsonSubstring.slice(0, 200)}`
+      );
     }
   }
 }
+
+// src/lib/parsers/imageResponse.ts
 function isNonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
 }
@@ -221,7 +267,11 @@ function safeTrim(value) {
   return String(value ?? "").trim();
 }
 function normalizeStructuredImageResponse(response) {
-  const stringModules = ["image_archetype", "composition", "imperfections"];
+  const stringModules = [
+    "image_archetype",
+    "composition",
+    "imperfections"
+  ];
   for (const key of stringModules) {
     const source = response[key];
     const target = {};
@@ -244,7 +294,6 @@ function normalizeStructuredImageResponse(response) {
   response.detailedPrompt = safeTrim(response.detailedPrompt);
   response.negativePrompt = safeTrim(response.negativePrompt);
   if (!isNonEmptyString(response.shortPrompt) && !isNonEmptyString(response.detailedPrompt)) {
-    console.error("[normalizeStructured] Both prompts empty. shortPrompt type:", typeof response.shortPrompt, "detailedPrompt type:", typeof response.detailedPrompt);
     throw new Error("\u6A21\u578B\u8FD4\u56DE\u4E86\u65E0\u6548\u7684\u54CD\u5E94\u683C\u5F0F\uFF0C\u8BF7\u91CD\u8BD5\u3002(E3)");
   }
   return response;
@@ -270,27 +319,15 @@ function normalizeLegacyImageResponse(response) {
   };
   const a = normalized.analysis;
   if (!isNonEmptyString(a.subject) || !isNonEmptyString(a.scene) || !isNonEmptyString(normalized.imagePrompt)) {
-    console.error("[normalizeLegacy] Missing required fields. Has subject:", isNonEmptyString(a.subject), "Has scene:", isNonEmptyString(a.scene), "Has imagePrompt:", isNonEmptyString(normalized.imagePrompt));
     throw new Error("\u6A21\u578B\u8FD4\u56DE\u4E86\u65E0\u6548\u7684\u54CD\u5E94\u683C\u5F0F\uFF0C\u8BF7\u91CD\u8BD5\u3002(E4)");
   }
   return normalized;
 }
-function formatLegacyImageAnalysis(promptResult) {
-  return JSON.stringify(promptResult, null, 2);
-}
-function formatImageAnalysis(promptResult) {
-  return JSON.stringify(promptResult, null, 2);
-}
 function parseGeminiImageResponse(rawText) {
   let parsed = parseGeminiJson(rawText);
-  console.log("[parseGeminiImage] Parsed top-level keys:", Object.keys(parsed));
-  console.log("[parseGeminiImage] Has image_archetype:", "image_archetype" in parsed);
-  console.log("[parseGeminiImage] Has global_overview:", "global_overview" in parsed);
-  console.log("[parseGeminiImage] Has negativePrompt:", "negativePrompt" in parsed);
   if (parsed && typeof parsed === "object" && !("image_archetype" in parsed) && !("global_overview" in parsed) && "analysis" in parsed) {
     const inner = parsed.analysis;
     if (inner && typeof inner === "object" && !Array.isArray(inner) && ("image_archetype" in inner || "global_overview" in inner)) {
-      console.log("[parseGeminiImage] \u2192 unwrapping nested analysis");
       parsed = {
         ...inner,
         shortPrompt: parsed.shortPrompt ?? inner.shortPrompt,
@@ -300,17 +337,17 @@ function parseGeminiImageResponse(rawText) {
     }
   }
   if (parsed && typeof parsed === "object" && "image_archetype" in parsed) {
-    console.log("[parseGeminiImage] \u2192 new structured path");
-    const promptResult2 = normalizeStructuredImageResponse(parsed);
+    const promptResult2 = normalizeStructuredImageResponse(
+      parsed
+    );
     return {
       imageSummary: promptResult2.shortPrompt,
-      generatedPrompt: formatImageAnalysis(promptResult2),
+      generatedPrompt: JSON.stringify(promptResult2, null, 2),
       rawResult: JSON.stringify(promptResult2, null, 2),
       promptResult: promptResult2
     };
   }
   if (parsed && typeof parsed === "object" && "global_overview" in parsed) {
-    console.log("[parseGeminiImage] \u2192 old structured path");
     const old = parsed;
     const promptResult2 = normalizeStructuredImageResponse({
       image_archetype: old.global_overview ?? {},
@@ -324,13 +361,12 @@ function parseGeminiImageResponse(rawText) {
     });
     return {
       imageSummary: promptResult2.shortPrompt,
-      generatedPrompt: formatImageAnalysis(promptResult2),
+      generatedPrompt: JSON.stringify(promptResult2, null, 2),
       rawResult: JSON.stringify(promptResult2, null, 2),
       promptResult: promptResult2
     };
   }
   if (parsed && typeof parsed === "object" && "negativePrompt" in parsed) {
-    console.log("[parseGeminiImage] \u2192 legacy skill path");
     const legacy = parsed;
     const promptResult2 = normalizeStructuredImageResponse({
       image_archetype: legacy.analysis ?? {},
@@ -344,22 +380,23 @@ function parseGeminiImageResponse(rawText) {
     });
     return {
       imageSummary: promptResult2.shortPrompt,
-      generatedPrompt: formatImageAnalysis(promptResult2),
+      generatedPrompt: JSON.stringify(promptResult2, null, 2),
       rawResult: JSON.stringify(promptResult2, null, 2),
       promptResult: promptResult2
     };
   }
-  console.log("[parseGeminiImage] \u2192 legacy fallback path");
-  const promptResult = normalizeLegacyImageResponse(parsed);
+  const promptResult = normalizeLegacyImageResponse(
+    parsed
+  );
   return {
     imageSummary: promptResult.shortPrompt,
-    generatedPrompt: formatLegacyImageAnalysis(promptResult),
+    generatedPrompt: JSON.stringify(promptResult, null, 2),
     rawResult: JSON.stringify(promptResult, null, 2),
     promptResult
   };
 }
 
-// src/lib/imageUtils.ts
+// src/lib/media/dimensions.ts
 function scaleDimensions(width, height, maxSide) {
   const longestEdge = Math.max(width, height);
   if (longestEdge <= maxSide) {
@@ -371,6 +408,8 @@ function scaleDimensions(width, height, maxSide) {
     height: Math.max(1, Math.round(height * ratio))
   };
 }
+
+// src/lib/media/imageUtils.ts
 async function createImageElement(sourceUrl) {
   const image = new Image();
   image.src = sourceUrl;
@@ -382,7 +421,11 @@ async function createImageElement(sourceUrl) {
 }
 async function resizeImageDataUrl(dataUrl, maxSide = 1536, quality = 0.7) {
   const img = await createImageElement(dataUrl);
-  const { width, height } = scaleDimensions(img.naturalWidth, img.naturalHeight, maxSide);
+  const { width, height } = scaleDimensions(
+    img.naturalWidth,
+    img.naturalHeight,
+    maxSide
+  );
   if (width === img.naturalWidth && height === img.naturalHeight) {
     return dataUrl;
   }
@@ -417,16 +460,10 @@ async function fetchImageAsDataUrl(imageUrl) {
   return `data:${mimeType};base64,${base64}`;
 }
 
-// src/lib/openaiClient.ts
+// src/lib/clients/openaiClient.ts
 function dataUrlToBase64(dataUrl) {
-  const match = dataUrl.match(/^data:(.+?);base64,(.+)$/);
-  if (!match) {
-    throw new Error("\u4E0D\u652F\u6301\u7684\u5E27\u683C\u5F0F\u3002");
-  }
-  return {
-    mimeType: match[1],
-    base64: match[2]
-  };
+  const { mimeType, data } = parseDataUrl(dataUrl);
+  return { mimeType, base64: data };
 }
 function readOpenAIError(payload) {
   if (payload && typeof payload === "object") {
@@ -484,7 +521,9 @@ async function analyzeImageStream({
   });
   if (!response.ok) {
     const errorText = await response.text().catch(() => "");
-    throw new Error(`API \u8BF7\u6C42\u5931\u8D25 (${response.status}): ${errorText.slice(0, 300)}`);
+    throw new Error(
+      `API \u8BF7\u6C42\u5931\u8D25 (${response.status}): ${errorText.slice(0, 300)}`
+    );
   }
   const reader = response.body?.getReader();
   if (!reader) {
@@ -535,36 +574,126 @@ async function analyzeImageStream({
   return parseGeminiImageResponse(fullContent);
 }
 
-// src/lib/aiClient.ts
+// src/lib/clients/geminiClient.ts
+function dataUrlToInlinePart(dataUrl) {
+  const { mimeType, data } = parseDataUrl(dataUrl);
+  return { mimeType, data };
+}
+function inferMimeTypeFromUrl(imageUrl) {
+  const pathname = new URL(imageUrl).pathname.toLowerCase();
+  if (pathname.endsWith(".png")) {
+    return "image/png";
+  }
+  if (pathname.endsWith(".webp")) {
+    return "image/webp";
+  }
+  if (pathname.endsWith(".gif")) {
+    return "image/gif";
+  }
+  return "image/jpeg";
+}
+function readGeminiError(payload) {
+  if (payload && typeof payload === "object" && "error" in payload && payload.error && typeof payload.error === "object" && "message" in payload.error && typeof payload.error.message === "string") {
+    return payload.error.message;
+  }
+  return readApiError(payload);
+}
+function readGeminiText(payload) {
+  if (payload && typeof payload === "object" && "candidates" in payload && Array.isArray(payload.candidates)) {
+    const textParts = payload.candidates.flatMap((candidate) => {
+      if (!candidate || typeof candidate !== "object" || !("content" in candidate) || !candidate.content || typeof candidate.content !== "object" || !("parts" in candidate.content) || !Array.isArray(candidate.content.parts)) {
+        return [];
+      }
+      return candidate.content.parts.flatMap((part) => {
+        if (part && typeof part === "object" && "text" in part && typeof part.text === "string") {
+          return [part.text];
+        }
+        return [];
+      });
+    }).join("\n").trim();
+    if (textParts) {
+      return textParts;
+    }
+  }
+  throw new Error("Gemini \u672A\u8FD4\u56DE\u6709\u6548\u7684\u63D0\u793A\u8BCD\uFF0C\u8BF7\u91CD\u8BD5\u3002");
+}
+async function analyzeImageWithGemini({
+  apiKey,
+  targetModel,
+  imageUrl,
+  imageDataUrl,
+  imageInfo
+}) {
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_ANALYSIS_MODEL}:generateContent`;
+  const instruction = buildGeminiImageInstruction(targetModel, imageInfo);
+  const imagePart = imageUrl ? {
+    file_data: {
+      mime_type: inferMimeTypeFromUrl(imageUrl),
+      file_uri: imageUrl
+    }
+  } : imageDataUrl ? {
+    inline_data: dataUrlToInlinePart(imageDataUrl)
+  } : null;
+  if (!imagePart) {
+    throw new Error("\u672A\u63D0\u4F9B\u7528\u4E8E\u5206\u6790\u7684\u56FE\u7247\u6570\u636E\u3002");
+  }
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": apiKey
+    },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: instruction }, imagePart]
+        }
+      ],
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: GEMINI_IMAGE_RESPONSE_SCHEMA,
+        temperature: 0.4,
+        topP: 0.9
+      }
+    })
+  });
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(
+      readGeminiError(payload) ?? "Gemini API \u8BF7\u6C42\u5931\u8D25\uFF0C\u8BF7\u68C0\u67E5\u60A8\u7684 API \u5BC6\u94A5\u3001\u914D\u989D\u6216\u7F51\u7EDC\u8FDE\u63A5\u3002"
+    );
+  }
+  const text = readGeminiText(payload);
+  return parseGeminiImageResponse(text);
+}
+
+// src/lib/clients/aiClient.ts
 async function analyzeImageStream2({
   apiKey,
   baseUrl,
   modelName,
+  providerType,
   targetModel,
   imageDataUrl,
   imageInfo,
   signal,
   onProgress
 }) {
-  return analyzeImageStream({
-    apiKey,
-    baseUrl,
-    modelName,
-    targetModel,
-    imageDataUrl,
-    imageInfo,
-    signal,
-    onProgress
-  });
+  if (providerType === "gemini") {
+    const result = await analyzeImageWithGemini({ apiKey, targetModel, imageDataUrl, imageInfo });
+    if (onProgress) onProgress(result.generatedPrompt);
+    return result;
+  }
+  return analyzeImageStream({ apiKey, baseUrl, modelName, targetModel, imageDataUrl, imageInfo, signal, onProgress });
 }
 
 // src/lib/storage.ts
 var SETTINGS_KEY = "video2prompt:settings";
 var ANALYSIS_KEY_PREFIX = "video2prompt:analysis:";
 var defaultSettings = {
-  apiKey: "",
-  baseUrl: "https://api.openai.com/v1",
-  modelName: "",
+  models: [],
+  activeModelId: "",
   targetModel: DEFAULT_TARGET_MODEL,
   frameSamplingMode: DEFAULT_FRAME_SAMPLING_MODE,
   promptFormat: DEFAULT_PROMPT_FORMAT
@@ -606,16 +735,36 @@ async function getSettings() {
   if (!raw) {
     return { ...defaultSettings };
   }
-  const legacyApiKey = raw.openaiApiKey || raw.geminiApiKey || "";
-  const legacyBaseUrl = raw.openaiBaseUrl || defaultSettings.baseUrl;
+  const rawModels = raw.models;
+  const hasModels = Array.isArray(rawModels) && rawModels.length > 0;
+  const models = hasModels ? rawModels : migrateLegacyModel(raw);
   return {
-    apiKey: raw.apiKey ?? legacyApiKey,
-    baseUrl: raw.baseUrl ?? legacyBaseUrl,
-    modelName: raw.modelName ?? defaultSettings.modelName,
+    models,
+    activeModelId: raw.activeModelId ?? (models.length > 0 ? models[0].id : ""),
     targetModel: normalizeTargetModel(raw.targetModel),
     frameSamplingMode: normalizeFrameSamplingMode(raw.frameSamplingMode),
     promptFormat: normalizePromptFormat(raw.promptFormat)
   };
+}
+function migrateLegacyModel(raw) {
+  const legacyApiKey = raw.apiKey || raw.openaiApiKey || raw.geminiApiKey || "";
+  const legacyBaseUrl = raw.baseUrl || raw.openaiBaseUrl || "";
+  const legacyModelName = raw.modelName || "";
+  if (!legacyApiKey && !legacyBaseUrl && !legacyModelName) {
+    return [];
+  }
+  return [{
+    id: crypto.randomUUID(),
+    name: "\u9ED8\u8BA4\u6A21\u578B",
+    providerType: "openai",
+    apiKey: legacyApiKey,
+    baseUrl: legacyBaseUrl || "https://api.openai.com/v1",
+    modelName: legacyModelName
+  }];
+}
+function getActiveModel(settings) {
+  if (!settings.activeModelId || settings.models.length === 0) return null;
+  return settings.models.find((m) => m.id === settings.activeModelId) ?? null;
 }
 function analysisStorageKey(tabId) {
   return `${ANALYSIS_KEY_PREFIX}${tabId}`;
@@ -710,7 +859,8 @@ async function startWebImageAnalysis({
     await publishState(state);
     return { ok: false, state };
   }
-  const hasConfig = settings.apiKey.trim().length > 0 && settings.baseUrl.trim().length > 0 && settings.modelName.trim().length > 0;
+  const activeModel = getActiveModel(settings);
+  const hasConfig = activeModel !== null && activeModel.apiKey.trim().length > 0 && activeModel.modelName.trim().length > 0 && (activeModel.providerType === "gemini" || activeModel.baseUrl.trim().length > 0);
   if (!hasConfig) {
     const state = await setState(
       resolvedTabId,
@@ -758,9 +908,10 @@ async function startWebImageAnalysis({
     const imageDataUrl = await fetchImageAsDataUrl(imageUrl);
     let lastProgressLen = 0;
     const result = await analyzeImageStream2({
-      apiKey: settings.apiKey,
-      baseUrl: settings.baseUrl,
-      modelName: settings.modelName,
+      apiKey: activeModel.apiKey,
+      baseUrl: activeModel.baseUrl,
+      modelName: activeModel.modelName,
+      providerType: activeModel.providerType,
       targetModel,
       imageDataUrl,
       imageInfo,

@@ -1,26 +1,17 @@
 import { useState } from "react";
 import styled from "styled-components";
-import type { FrameSamplingMode } from "../lib/types";
 import { useAppState } from "./useAppState";
+import { useClickOutside } from "./useClickOutside";
+import { ImageVideoPage } from "./ImageVideoPage";
+import { EnhancerPage } from "./EnhancerPage";
 import { HistoryView } from "./HistoryView";
 import { SettingsView } from "./SettingsView";
-import {
-  SpinnerIcon,
-  SparklePlaceholder,
-  ExpandIcon,
-  WandIcon,
-  EnhancerVideoIcon,
-  EnhancerImageIcon,
-} from "./icons";
-import {
-  type TabId,
-  IMAGE_ACCEPT,
-  VIDEO_ACCEPT,
-  FRAME_MODE_COPY,
-} from "./types";
+import { type TabId, IMAGE_ACCEPT, VIDEO_ACCEPT } from "./types";
 
 export function App() {
   const { state, refs, actions } = useAppState();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useClickOutside(menuOpen, () => setMenuOpen(false));
 
   return (
     <main className="sophia-shell">
@@ -42,7 +33,7 @@ export function App() {
                   onClick={() => actions.handleTabChange("image")}
                   title="图片视图"
                 >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="9" cy="9" r="2" /><path d="M21 15l-3.5-3.5a2 2 0 0 0-3 0L6 20" /></svg>
+                  <img src="icons/image.svg" alt="图片视图" className="tab-icon-img" />
                   <span className="tab-tooltip">图片视图</span>
                 </button>
                 <button
@@ -52,7 +43,7 @@ export function App() {
                   onClick={() => actions.handleTabChange("video")}
                   title="视频视图"
                 >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="15" height="16" rx="2" /><path d="M17 8l4-2v12l-4-2" /></svg>
+                  <img src="icons/video.svg" alt="视频视图" className="tab-icon-img" />
                   <span className="tab-tooltip">视频视图</span>
                 </button>
                 <button
@@ -62,25 +53,54 @@ export function App() {
                   onClick={() => actions.handleTabChange("enhancer")}
                   title="提示词增强"
                 >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="9" y1="13" x2="15" y2="13" /><line x1="9" y1="17" x2="13" y2="17" /></svg>
+                  <img src="icons/text.svg" alt="提示词增强" className="tab-icon-img" />
                   <span className="tab-tooltip">提示词增强</span>
                 </button>
               </nav>
             </div>
-            <div className="header-actions">
-              <button className="header-action-btn" aria-label="历史记录" onClick={() => actions.setSubView("history")}>
+            <div className="header-actions" ref={menuRef}>
+              <button 
+                className="header-action-btn" 
+                aria-label="菜单" 
+                onClick={() => setMenuOpen(!menuOpen)}
+              >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 12a9 9 0 1 0 3-6.7" />
-                  <path d="M3 3v4h4" />
-                  <path d="M12 7v5l3 2" />
+                  <line x1="4" y1="6" x2="20" y2="6" />
+                  <line x1="4" y1="12" x2="20" y2="12" />
+                  <line x1="4" y1="18" x2="20" y2="18" />
                 </svg>
               </button>
-              <button className="header-action-btn" aria-label="设置" onClick={() => actions.setSubView("settings")}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="3" />
-                  <path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 0 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 0 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3h.1a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5h.1a1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 0 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8v.1a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z" />
-                </svg>
-              </button>
+              {menuOpen && (
+                <div className="action-menu-dropdown">
+                  <button 
+                    className="menu-item"
+                    onClick={() => {
+                      actions.setSubView("history");
+                      setMenuOpen(false);
+                    }}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 12a9 9 0 1 0 3-6.7" />
+                      <path d="M3 3v4h4" />
+                      <path d="M12 7v5l3 2" />
+                    </svg>
+                    <span>历史记录</span>
+                  </button>
+                  <button 
+                    className="menu-item"
+                    onClick={() => {
+                      actions.setSubView("settings");
+                      setMenuOpen(false);
+                    }}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="3" />
+                      <path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 0 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 0 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3h.1a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5h.1a1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 0 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8v.1a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z" />
+                    </svg>
+                    <span>设置</span>
+                  </button>
+                </div>
+              )}
             </div>
           </StyledHeader>
 
@@ -102,6 +122,7 @@ export function App() {
                 onAbort={actions.handleAbort}
                 onCopy={actions.handleCopy}
                 onEditResult={(val) => actions.updateIVTab("image", { editedResultText: val })}
+                onToggleExpanded={() => actions.updateIVTab("image", { isExpanded: !state.ivTabData.image.isExpanded })}
                 onFileDrop={(file) => actions.handleFileDrop(file, "image")}
               />
             ) : null}
@@ -124,6 +145,7 @@ export function App() {
                 onAbort={actions.handleAbort}
                 onCopy={actions.handleCopy}
                 onEditResult={(val) => actions.updateIVTab("video", { editedResultText: val })}
+                onToggleExpanded={() => actions.updateIVTab("video", { isExpanded: !state.ivTabData.video.isExpanded })}
                 onFrameSamplingModeChange={actions.handleFrameSamplingModeChange}
                 onFileDrop={(file) => actions.handleFileDrop(file, "video")}
               />
@@ -170,18 +192,12 @@ export function App() {
 
       {state.subView === "settings" ? (
         <SettingsView
-          apiKeyInput={state.apiKeyInput}
-          baseUrlInput={state.baseUrlInput}
-          modelNameInput={state.modelNameInput}
-          showApiKey={state.showApiKey}
-          hasApiKey={state.hasApiKey}
+          settings={state.settings}
           onBack={() => actions.setSubView("main")}
-          onApiKeyInputChange={actions.setApiKeyInput}
-          onBaseUrlInputChange={actions.setBaseUrlInput}
-          onModelNameInputChange={actions.setModelNameInput}
-          onToggleShowApiKey={() => actions.setShowApiKey((c) => !c)}
-          onSaveApiKey={() => void actions.handleSaveApiKey()}
-          onDeleteSavedApiKey={() => void actions.handleDeleteSavedApiKey()}
+          onSelectModel={(modelId) => actions.handleSelectModel(modelId)}
+          onAddModel={(model) => void actions.handleAddModel(model)}
+          onUpdateModel={(model) => void actions.handleUpdateModel(model)}
+          onDeleteModel={(modelId) => void actions.handleDeleteModel(modelId)}
         />
       ) : null}
 
@@ -190,226 +206,16 @@ export function App() {
   );
 }
 
-function ImageVideoPage({
-  mode,
-  tabData,
-  isAnalyzing,
-  canAnalyze,
-  hasApiKey,
-  displayResultText,
-  showCopy,
-  currentMediaPreview,
-  currentMediaAspectRatio,
-  frameSamplingMode,
-  onUploadClick,
-  onAnalyze,
-  onClear,
-  onAbort,
-  onCopy,
-  onEditResult,
-  onFrameSamplingModeChange,
-  onFileDrop,
-}: {
-  mode: "image" | "video";
-  tabData: import("./types").IVTabData;
-  isAnalyzing: boolean;
-  canAnalyze: boolean;
-  hasApiKey: boolean;
-  displayResultText: string;
-  showCopy: boolean;
-  currentMediaPreview: React.ReactNode;
-  currentMediaAspectRatio: string | undefined;
-  frameSamplingMode?: FrameSamplingMode;
-  onUploadClick: () => void;
-  onAnalyze: () => void;
-  onClear: () => void;
-  onAbort: () => void;
-  onCopy: () => void;
-  onEditResult: (val: string) => void;
-  onFrameSamplingModeChange?: (mode: FrameSamplingMode) => void;
-  onFileDrop?: (file: File) => void;
-}) {
-  const isImage = mode === "image";
-  const mediaLabel = isImage ? "图片" : "视频";
-  const acceptHint = isImage ? "JPG / PNG / WebP / GIF" : "MP4 / WebM / MOV";
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [samplingDropdownOpen, setSamplingDropdownOpen] = useState(false);
-  const [showSamplingInfo, setShowSamplingInfo] = useState(false);
-  const [isDragOver, setIsDragOver] = useState(false);
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOver(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOver(false);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOver(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file && onFileDrop) {
-      onFileDrop(file);
-    }
-  };
-
-  return (
-    <>
-      <UploadFormCard className={`${isDragOver ? "is-drag-over" : ""} ${isExpanded ? "is-expanded" : ""}`}>
-        {tabData.mediaSource.kind === "none" ? (
-          <label
-            className="upload-label"
-            onClick={onUploadClick}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onUploadClick(); }}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-          >
-            <div className="upload-design">
-              <svg height="36" viewBox="0 0 640 512" fill="rgb(82, 82, 82)">
-                <path d="M144 480C64.5 480 0 415.5 0 336c0-62.8 40.2-116.2 96.2-135.9c-.1-2.7-.2-5.4-.2-8.1c0-88.4 71.6-160 160-160c59.3 0 111 32.2 138.7 80.2C409.9 102 428.3 96 448 96c53 0 96 43 96 96c0 12.2-2.3 23.8-6.4 34.6C596 238.4 640 290.1 640 352c0 70.7-57.3 128-128 128H144zm79-217c-9.4 9.4-9.4 24.6 0 33.9s24.6 9.4 33.9 0l39-39V392c0 13.3 10.7 24 24 24s24-10.7 24-24V257.9l39 39c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-80-80c-9.4-9.4-24.6-9.4-33.9 0l-80 80z" />
-              </svg>
-              <p className="upload-title">拖拽{mediaLabel}到此处</p>
-              <p className="upload-or">或</p>
-              <span className="upload-browse-btn">选择文件</span>
-              <p className="upload-hint">支持 {acceptHint} 等格式</p>
-            </div>
-            {tabData.uploadError ? <p className="upload-error">{tabData.uploadError}</p> : null}
-          </label>
-        ) : (
-          <>
-            <div className="upload-preview" style={currentMediaAspectRatio ? { aspectRatio: currentMediaAspectRatio } : undefined}>
-              {currentMediaPreview}
-            </div>
-            <div className="upload-actions">
-              <button
-                className={`upload-action-primary ${isAnalyzing ? "upload-action-primary--busy" : ""}`}
-                onClick={onAnalyze}
-                disabled={!canAnalyze}
-              >
-                {isAnalyzing ? <><SpinnerIcon />识别中</> : tabData.resultMode === "text" ? "重新生成" : "生成"}
-              </button>
-              <button className="upload-action-secondary" onClick={onClear} disabled={isAnalyzing}>清除</button>
-              {isAnalyzing ? (
-                <button className="upload-action-secondary" onClick={onAbort}>中止</button>
-              ) : null}
-            </div>
-            {!hasApiKey ? <p className="upload-hint-warn">请先在设置中配置模型信息</p> : null}
-          </>
-        )}
-      </UploadFormCard>
-
-      {!isImage && frameSamplingMode && onFrameSamplingModeChange ? (
-        <div className="frame-sampling-row">
-          <div className="frame-sampling-header">
-            <span className="frame-sampling-title">帧采样</span>
-            <button
-              type="button"
-              className="frame-sampling-info-btn"
-              onMouseEnter={() => setShowSamplingInfo(true)}
-              onMouseLeave={() => setShowSamplingInfo(false)}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-                <line x1="12" y1="17" x2="12.01" y2="17" />
-              </svg>
-            </button>
-            {showSamplingInfo ? (
-              <div className="frame-sampling-tooltip">
-                选择帧采样方式，控制从视频中提取的帧数量和策略
-              </div>
-            ) : null}
-          </div>
-          <div className="frame-sampling-dropdown">
-            <button
-              type="button"
-              className={`frame-sampling-trigger ${samplingDropdownOpen ? "is-open" : ""}`}
-              onClick={() => setSamplingDropdownOpen((c) => !c)}
-            >
-              <span className="frame-sampling-label">{FRAME_MODE_COPY[frameSamplingMode].label}</span>
-              <svg className="frame-sampling-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M6 9l6 6 6-6" />
-              </svg>
-            </button>
-            {samplingDropdownOpen ? (
-              <div className="frame-sampling-menu">
-                {(Object.keys(FRAME_MODE_COPY) as FrameSamplingMode[]).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    className={`frame-sampling-opt ${frameSamplingMode === m ? "is-selected" : ""}`}
-                    onClick={() => { onFrameSamplingModeChange(m); setSamplingDropdownOpen(false); }}
-                  >
-                    <span className="frame-sampling-opt-label">{FRAME_MODE_COPY[m].label}</span>
-                    <span className="frame-sampling-opt-desc">{FRAME_MODE_COPY[m].description}</span>
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
-
-      <section className={`result-card ${isExpanded ? "result-card--expanded" : ""}`}>
-        <div className="result-card-head">
-          <span className="result-card-title">识别结果</span>
-          {tabData.resultMode === "text" ? (
-            <div className="result-card-actions">
-              {showCopy ? (
-                <button className="result-copy-btn" onClick={onCopy}>
-                  {tabData.copyLabel === "已复制" ? "已复制" : "复制"}
-                </button>
-              ) : null}
-              <button className="result-expand-btn" onClick={() => setIsExpanded((v) => !v)} title={isExpanded ? "收起" : "展开"}>
-                <ExpandIcon expanded={isExpanded} />
-              </button>
-            </div>
-          ) : null}
-        </div>
-        <div className={`result-card-body result-body-${tabData.resultMode}`}>
-          {tabData.resultMode === "loading" ? (
-            <div className="result-loading">
-              <SpinnerIcon />
-              <strong>{tabData.streamText ? "实时生成中..." : "正在识别中..."}</strong>
-              {tabData.streamText ? (
-                <pre className="result-stream-text">{tabData.streamText}</pre>
-              ) : null}
-            </div>
-          ) : null}
-          {tabData.resultMode === "empty" ? (
-            <div className="result-empty"><SparklePlaceholder /><p>上传{mediaLabel}后点击生成，结果将在此呈现</p></div>
-          ) : null}
-          {tabData.resultMode === "error" ? <div className="result-error-state"><p>{tabData.resultText}</p></div> : null}
-          {tabData.resultMode === "text" ? (
-            <textarea
-              className="result-edit-area"
-              value={displayResultText}
-              onChange={(e) => onEditResult(e.target.value)}
-              spellCheck={false}
-            />
-          ) : null}
-        </div>
-      </section>
-    </>
-  );
-}
-
 const StyledHeader = styled.header`
   display: flex;
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
-  background-color: #ffffff;
-  border-bottom: 1px solid var(--border-light);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid var(--glass-border);
+  box-shadow: var(--glass-inner-shadow);
   position: sticky;
   top: 0;
   z-index: 10;
@@ -435,10 +241,13 @@ const StyledHeader = styled.header`
 
   .tab-nav {
     display: flex;
-    gap: 6px;
-    background-color: var(--bg-subtle);
+    gap: 12px;
+    background: rgba(0, 0, 0, 0.04);
+    -webkit-backdrop-filter: var(--glass-blur-sm);
+    backdrop-filter: var(--glass-blur-sm);
     border-radius: var(--radius-pill);
-    padding: 4px 6px;
+    padding: 5px 8px;
+    border: 1px solid var(--glass-border);
   }
 
   .tab-nav-btn {
@@ -446,23 +255,40 @@ const StyledHeader = styled.header`
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 36px;
-    border: none;
+    width: 38px;
+    height: 32px;
+    border: 1px solid transparent;
     border-radius: var(--radius-pill);
     background: transparent;
     color: var(--text-tertiary);
     cursor: pointer;
-    transition: all var(--duration-normal) ease;
+    transition: all 0.3s var(--ease-out);
 
     svg {
-      width: 20px;
-      height: 20px;
+      width: 15px;
+      height: 15px;
+    }
+
+    .tab-icon-img {
+      width: 15px;
+      height: 15px;
+      object-fit: contain;
+      filter: invert(60%) sepia(8%) saturate(200%) hue-rotate(180deg) brightness(85%) contrast(85%);
+      transition: filter 0.3s var(--ease-out);
+    }
+
+    &:hover .tab-icon-img {
+      filter: invert(30%) sepia(8%) saturate(200%) hue-rotate(180deg) brightness(90%) contrast(90%);
     }
 
     &:hover {
       color: var(--text-secondary);
+      background: rgba(0, 0, 0, 0.03);
     }
+  }
+
+  .tab-nav-btn--active .tab-icon-img {
+    filter: invert(0%) brightness(0%) contrast(100%);
   }
 
   .tab-tooltip {
@@ -470,16 +296,18 @@ const StyledHeader = styled.header`
     top: calc(100% + 10px);
     left: 50%;
     transform: translateX(-50%) translateY(-6px);
-    background: var(--bg-dark);
-    color: var(--text-on-dark);
-    font-size: 11px;
-    font-weight: 500;
+    background: var(--bg-card-solid);
+    color: var(--text-primary);
+    font-size: var(--text-xxs);
+    font-weight: var(--font-medium);
     padding: 5px 12px;
     border-radius: var(--radius-sm);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow-elevated);
     white-space: nowrap;
     pointer-events: none;
     opacity: 0;
-    transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: opacity 0.25s var(--ease-out), transform 0.25s var(--ease-out);
   }
 
   .tab-tooltip::after {
@@ -489,7 +317,7 @@ const StyledHeader = styled.header`
     left: 50%;
     transform: translateX(-50%);
     border: 4px solid transparent;
-    border-bottom-color: var(--bg-dark);
+    border-bottom-color: var(--glass-border);
   }
 
   .tab-nav-btn:hover .tab-tooltip {
@@ -499,13 +327,17 @@ const StyledHeader = styled.header`
 
   .tab-nav-btn--active {
     color: var(--text-primary);
-    background-color: var(--bg-card);
-    box-shadow: var(--shadow-sm);
+    background: var(--glass-bg-hover);
+    -webkit-backdrop-filter: var(--glass-blur-sm);
+    backdrop-filter: var(--glass-blur-sm);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), var(--glass-inner-shadow);
+    border: 1px solid var(--glass-border-hover);
+    transform: translateY(-1px);
   }
 
   .tab-nav-btn--active:hover {
     color: var(--text-primary);
-    background-color: var(--bg-card);
+    background: var(--glass-bg-hover);
   }
 
   .header-actions {
@@ -525,8 +357,8 @@ const StyledHeader = styled.header`
     border: none;
     background: transparent;
     cursor: pointer;
-    color: var(--text-tertiary);
-    transition: background-color var(--duration-fast) ease, color var(--duration-fast) ease;
+    color: var(--text-secondary);
+    transition: all var(--duration-fast) var(--ease-out);
 
     svg {
       width: 17px;
@@ -534,430 +366,67 @@ const StyledHeader = styled.header`
     }
 
     &:hover {
-      background-color: var(--bg-hover);
+      background: var(--bg-hover);
       color: var(--text-primary);
     }
   }
-`;
 
-const UploadFormCard = styled.section`
-  background-color: var(--bg-card);
-  border-radius: var(--radius-xl);
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  border: 2px dashed var(--border-medium);
-  box-shadow: var(--shadow-card);
-  overflow: visible;
-  position: relative;
-  transition: border-color var(--duration-normal) ease, box-shadow var(--duration-normal) ease, background-color var(--duration-normal) ease;
-  min-height: 260px;
-  max-height: 320px;
-
-  &.is-drag-over {
-    border-color: var(--accent);
-    background-color: var(--bg-subtle);
-    box-shadow: var(--shadow-elevated);
-  }
-
-  .upload-label {
-    cursor: pointer;
+  .action-menu-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 160px;
+    background: var(--bg-card-solid);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--glass-shadow-elevated);
+    padding: var(--space-1);
     display: flex;
     flex-direction: column;
-    align-items: center;
-    width: 100%;
-    padding: 28px var(--space-6) var(--space-5);
-    box-sizing: border-box;
-    flex: 1;
+    gap: 2px;
+    z-index: 100;
+    animation: menu-dropdown-in 0.2s var(--ease-out);
   }
 
-  .upload-design {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-2);
-  }
-
-  .upload-design svg {
-    margin-bottom: var(--space-3);
-  }
-
-  .upload-title {
-    font-size: var(--text-base);
-    font-weight: 500;
-    color: var(--text-primary);
-    margin: 0;
-  }
-
-  .upload-or {
-    font-size: var(--text-xs);
-    color: var(--text-tertiary);
-    margin: var(--space-1) 0;
-  }
-
-  .upload-browse-btn {
-    background-color: var(--accent);
-    padding: 7px 22px;
-    border-radius: var(--radius-md);
-    color: var(--text-on-dark);
-    font-size: var(--text-sm);
-    font-weight: 500;
-    cursor: pointer;
-    transition: background-color var(--duration-normal) ease;
-
-    &:hover {
-      background-color: var(--accent-hover);
+  @keyframes menu-dropdown-in {
+    from {
+      opacity: 0;
+      transform: translateY(-8px) scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
     }
   }
 
-  .upload-hint {
-    font-size: 11px;
-    color: var(--text-tertiary);
-    margin: var(--space-3) 0 0;
-  }
-
-  .upload-error {
-    color: var(--danger);
-    font-size: var(--text-xs);
-    margin: var(--space-2) 0 0;
-    text-align: center;
-  }
-
-  .upload-preview {
-    width: 100%;
-    flex: 1;
+  .menu-item {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-    overflow: hidden;
-
-    img, video {
-      max-width: 95%;
-      max-height: 180px;
-      object-fit: contain;
-      display: block;
-      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-  }
-
-  &.is-expanded .upload-preview {
-    img, video {
-      max-height: 60px;
-      max-width: 70px;
-    }
-  }
-
-  .upload-actions {
-    display: flex;
-    gap: var(--space-3);
-    padding: var(--space-3) var(--space-5);
-    width: 100%;
-    box-sizing: border-box;
-    justify-content: center;
-    flex-shrink: 0;
-  }
-
-  .upload-action-primary {
-    background-color: var(--accent);
-    color: var(--text-on-dark);
-    border: none;
-    border-radius: var(--radius-md);
-    padding: 8px 32px;
-    font-size: var(--text-sm);
-    font-weight: 500;
-    cursor: pointer;
-    display: inline-flex;
     align-items: center;
     gap: var(--space-2);
-    transition: background-color var(--duration-fast) ease;
-
-    &:hover:not(:disabled) {
-      background-color: var(--accent-hover);
-    }
-
-    &:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    svg {
-      width: 14px;
-      height: 14px;
-      animation: spin 1s linear infinite;
-    }
-  }
-
-  .upload-action-primary--busy svg {
-    animation: spin 1s linear infinite;
-  }
-
-  .upload-action-secondary {
-    background-color: transparent;
-    color: var(--text-primary);
-    border: 1.5px solid var(--border-medium);
-    border-radius: var(--radius-md);
-    padding: 8px 28px;
-    font-size: var(--text-sm);
-    font-weight: 400;
-    cursor: pointer;
-    transition: all var(--duration-fast) ease;
-
-    &:hover:not(:disabled) {
-      border-color: var(--accent);
-      color: var(--accent);
-    }
-
-    &:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
-  }
-
-  .upload-hint-warn {
-    font-size: var(--text-xs);
-    color: var(--danger);
-    text-align: center;
-    padding: 0 var(--space-5) var(--space-4);
-    margin: 0;
-  }
-`;
-
-const EnhancerFormCard = styled.section`
-  background-color: var(--bg-card);
-  border-radius: var(--radius-xl);
-  padding: var(--space-5);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  border: 2px dashed var(--border-medium);
-  box-shadow: var(--shadow-card);
-  gap: var(--space-3);
-
-  .enhancer-mode-pills {
-    display: flex;
-    gap: 4px;
-    background-color: var(--bg-subtle);
-    border-radius: var(--radius-md);
-    padding: 3px;
-    width: 100%;
-  }
-
-  .enhancer-pill {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-1);
-    flex: 1;
-    padding: 8px 0;
-    border-radius: var(--radius-sm);
+    padding: 10px var(--space-3);
     border: none;
     background: transparent;
-    color: var(--text-tertiary);
-    font-size: var(--text-sm);
-    font-weight: 400;
+    border-radius: var(--radius-sm);
     cursor: pointer;
-    transition: all var(--duration-fast) ease;
+    color: var(--text-primary);
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    transition: all var(--duration-fast) var(--ease-out);
+    text-align: left;
 
     svg {
-      width: 14px;
-      height: 14px;
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
     }
 
     &:hover {
+      background: var(--bg-hover);
       color: var(--text-primary);
     }
-  }
 
-  .enhancer-pill--active {
-    background-color: var(--accent);
-    color: var(--text-on-dark);
-
-    &:hover {
-      color: var(--text-on-dark);
+    &:active {
+      transform: scale(0.98);
     }
-  }
-
-  .enhancer-input-wrap {
-    width: 100%;
-  }
-
-  .enhancer-textarea {
-    width: 100%;
-    border: 1.5px solid var(--border-light);
-    border-radius: var(--radius-lg);
-    padding: var(--space-4);
-    font-size: var(--text-sm);
-    line-height: 1.5;
-    resize: vertical;
-    min-height: 100px;
-    box-sizing: border-box;
-    font-family: inherit;
-    color: var(--text-primary);
-    background: var(--bg-input);
-    transition: border-color var(--duration-fast) ease;
-
-    &:focus {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--accent-glow);
-    }
-
-    &::placeholder {
-      color: var(--text-placeholder);
-    }
-  }
-
-  .enhancer-action-row {
-    display: flex;
-    gap: var(--space-2);
-    width: 100%;
-    justify-content: center;
-  }
-
-  .upload-action-primary {
-    width: 100%;
-    background-color: var(--bg-card);
-    color: var(--text-primary);
-    border: 1.5px solid var(--accent);
-    border-radius: var(--radius-lg);
-    padding: 11px var(--space-5);
-    font-size: var(--text-sm);
-    font-weight: 500;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-2);
-    transition: all var(--duration-fast) ease;
-
-    &:hover:not(:disabled) {
-      background-color: var(--bg-subtle);
-    }
-
-    &:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    svg {
-      width: 14px;
-      height: 14px;
-      animation: spin 1s linear infinite;
-    }
-  }
-
-  .upload-hint-warn {
-    font-size: var(--text-xs);
-    color: var(--danger);
-    text-align: center;
-    margin: 0;
   }
 `;
-
-function EnhancerPage({
-  enhancerMode,
-  enhancerInput,
-  isEnhancingPrompt,
-  canEnhancePrompt,
-  hasApiKey,
-  enhancerResultMode,
-  enhancerResultText,
-  enhancerCopyLabel,
-  showEnhancerCopy,
-  onSetEnhancerMode,
-  onSetEnhancerInput,
-  onEnhance,
-  onAbortEnhancer,
-  onCopyEnhancer,
-}: {
-  enhancerMode: "video" | "image";
-  enhancerInput: string;
-  isEnhancingPrompt: boolean;
-  canEnhancePrompt: boolean;
-  hasApiKey: boolean;
-  enhancerResultMode: "empty" | "loading" | "text" | "error";
-  enhancerResultText: string;
-  enhancerCopyLabel: string;
-  showEnhancerCopy: boolean;
-  onSetEnhancerMode: (mode: "video" | "image") => void;
-  onSetEnhancerInput: (val: string) => void;
-  onEnhance: () => void;
-  onAbortEnhancer: () => void;
-  onCopyEnhancer: () => void;
-}) {
-  return (
-    <>
-      <EnhancerFormCard>
-        <div className="enhancer-mode-pills" role="tablist" aria-label="增强器模式">
-          <button type="button" role="tab" aria-selected={enhancerMode === "video"}
-            className={`enhancer-pill ${enhancerMode === "video" ? "enhancer-pill--active" : ""}`}
-            onClick={() => onSetEnhancerMode("video")}>
-            <EnhancerVideoIcon /><span>视频</span>
-          </button>
-          <button type="button" role="tab" aria-selected={enhancerMode === "image"}
-            className={`enhancer-pill ${enhancerMode === "image" ? "enhancer-pill--active" : ""}`}
-            onClick={() => onSetEnhancerMode("image")}>
-            <EnhancerImageIcon /><span>图片</span>
-          </button>
-        </div>
-
-        <div className="enhancer-input-wrap">
-          <textarea
-            value={enhancerInput}
-            onChange={(e) => onSetEnhancerInput(e.target.value)}
-            placeholder={enhancerMode === "video"
-              ? "描述你的视频创意，例如：一个女孩在雨中漫步，慢镜头，电影质感"
-              : "描述你的图片创意，例如：一只金毛幼犬在草地上奔跑，阳光明媚"}
-            rows={5}
-            className="enhancer-textarea"
-          />
-        </div>
-
-        {isEnhancingPrompt ? (
-          <div className="enhancer-action-row">
-            <button className="upload-action-primary upload-action-primary--busy" disabled>
-              <SpinnerIcon />增强中
-            </button>
-            <button className="upload-action-secondary" onClick={onAbortEnhancer}>中止</button>
-          </div>
-        ) : (
-          <button
-            className="upload-action-primary"
-            onClick={() => void onEnhance()}
-            disabled={!canEnhancePrompt}
-          >
-            <WandIcon /><span>增强</span>
-          </button>
-        )}
-
-        {!hasApiKey ? (
-          <p className="upload-hint-warn">请先在设置中配置模型信息</p>
-        ) : null}
-      </EnhancerFormCard>
-
-      <section className="result-card">
-        <div className="result-card-head">
-          <span className="result-card-title">增强结果</span>
-          {showEnhancerCopy ? (
-            <button className="result-copy-btn" onClick={() => void onCopyEnhancer()}>
-              {enhancerCopyLabel}
-            </button>
-          ) : null}
-        </div>
-        <div className={`result-card-body result-body-${enhancerResultMode}`}>
-          {enhancerResultMode === "loading" ? (
-            <div className="result-loading"><SpinnerIcon /><strong>正在增强中...</strong></div>
-          ) : null}
-          {enhancerResultMode === "empty" ? (
-            <div className="result-empty"><SparklePlaceholder /><p>输入创意后点击增强，结果将在此呈现</p></div>
-          ) : null}
-          {enhancerResultMode === "error" ? <div className="result-error-state"><p>{enhancerResultText}</p></div> : null}
-          {enhancerResultMode === "text" ? <div className="result-text-block">{enhancerResultText}</div> : null}
-        </div>
-      </section>
-    </>
-  );
-}

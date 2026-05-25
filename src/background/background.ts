@@ -3,6 +3,7 @@ import { fetchImageAsDataUrl } from "../lib/media/imageUtils";
 import {
   clearAnalysisState,
   createAnalysisState,
+  getActiveModel,
   getAnalysisState,
   getSettings,
   saveAnalysisState
@@ -114,9 +115,11 @@ async function startWebImageAnalysis({
     return { ok: false, state };
   }
 
-  const hasConfig = settings.apiKey.trim().length > 0
-    && settings.baseUrl.trim().length > 0
-    && settings.modelName.trim().length > 0;
+  const activeModel = getActiveModel(settings);
+  const hasConfig = activeModel !== null
+    && activeModel.apiKey.trim().length > 0
+    && activeModel.modelName.trim().length > 0
+    && (activeModel.providerType === "gemini" || activeModel.baseUrl.trim().length > 0);
 
   if (!hasConfig) {
     const state = await setState(
@@ -172,9 +175,10 @@ async function startWebImageAnalysis({
 
     let lastProgressLen = 0;
     const result = await analyzeImageStream({
-      apiKey: settings.apiKey,
-      baseUrl: settings.baseUrl,
-      modelName: settings.modelName,
+      apiKey: activeModel!.apiKey,
+      baseUrl: activeModel!.baseUrl,
+      modelName: activeModel!.modelName,
+      providerType: activeModel!.providerType,
       targetModel,
       imageDataUrl,
       imageInfo,
