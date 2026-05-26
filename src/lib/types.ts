@@ -159,79 +159,132 @@ export type GeminiImagePromptResponse = {
 // ── Structured image analysis types ─────────────────────────────────
 
 export type ImageArchetype = {
-  primary_type?: string;
+  image_domain?: string;
   visual_medium?: string;
-  style_genre?: string;
-  atmosphere?: string;
-  period_feel?: string;
-  commercial_context?: string;
+  style_category?: string;
+  scene_context?: string;
+  realism_level?: string;
+  source_format?: string;
 };
 
 export type SubjectItem = {
   name?: string;
   category?: string;
-  count?: number;
-  shape_and_structure?: string;
-  color?: string;
+  identity_cues?: string;
+  viewpoint?: string;
+  visible_parts?: string;
+  crop_state?: string;
+  body_coverage?: string;
+  support_contact?: string;
+  expression_and_gaze?: string;
+  head_orientation?: string;
+  body_orientation?: string;
+  facial_geometry?: string;
+  pose_and_action?: string;
+  limb_layout?: string;
+  silhouette?: string;
+  physical_attributes?: string;
   material?: string;
-  texture_and_surface?: string;
-  condition?: string;
-  position_in_frame?: string;
-  spatial_relationships?: string;
-  sub_parts?: string[];
+  surface_texture?: string;
+  logos_or_symbols?: string;
+  primary_colors?: string;
+  position?: string;
+  scale?: string;
+  orientation?: string;
+  interaction?: string;
 };
 
 export type ImageComposition = {
   aspect_ratio?: string;
-  shot_type?: string;
+  framing?: string;
   camera_angle?: string;
-  camera_height?: string;
-  perspective?: string;
-  focal_impression?: string;
-  subject_proportion?: string;
-  visual_center?: string;
-  reading_path?: string;
+  subject_scale?: string;
+  crop_boundaries?: string;
+  layout_map?: string;
+  negative_space_ratio?: string;
+  motion_direction?: string;
+  shadow_layout?: string;
+  focal_behavior?: string;
+  perspective_depth?: string;
+  layer_structure?: string;
   negative_space?: string;
-  depth_layers?: string;
-  cropping?: string;
+  visual_focus?: string;
 };
 
 export type LightingAndColor = {
-  light_direction?: string;
+  light_sources?: string;
   light_quality?: string;
-  intensity?: string;
-  contrast?: string;
+  contrast_level?: string;
   color_temperature?: string;
-  saturation?: string;
-  dominant_colors?: string[];
-  accent_colors?: string[];
+  dominant_palette?: string[];
+  accent_palette?: string[];
+  reflections?: string;
   shadow_behavior?: string;
-  highlight_behavior?: string;
-  background_color?: string;
-  gradient?: string;
+};
+
+export type SetDressing = {
+  background_elements?: string;
+  support_surface?: string;
+  prop_layers?: string;
+  repeated_details?: string;
+  decorative_density?: string;
+  textile_folds?: string;
+  jewelry_or_beads?: string;
+  background_light_points?: string;
+  omissions_to_avoid?: string;
+};
+
+export type AtmosphericSignature = {
+  mood_temperature?: string;
+  era_reference?: string;
+  ambience?: string;
+  air_quality?: string;
+  contrast_feel?: string;
+  glow_or_halation?: string;
+  medium_texture?: string;
+  surrealness_level?: string;
+  stillness_or_motion_energy?: string;
 };
 
 export type ImageImperfections = {
-  noise_or_grain?: string;
-  blur_areas?: string;
-  wear_or_aging?: string;
-  artifacts?: string;
-  edge_variation?: string;
-  occluded_elements?: string;
+  grain_or_noise?: string;
+  blur?: string;
+  compression_artifacts?: string;
+  distortions?: string;
+};
+
+export type RecreationAnchors = {
+  must_preserve?: string[];
+  high_risk_errors?: string[];
+  priority_order?: string;
+  prompt_frontload?: string;
 };
 
 export type StructuredImagePromptResponse = {
   image_archetype: ImageArchetype;
+  recreation_anchors: RecreationAnchors;
   subjects: SubjectItem[];
   composition: ImageComposition;
+  set_dressing?: SetDressing;
   lighting_and_color: LightingAndColor;
+  atmospheric_signature: AtmosphericSignature;
   imperfections: ImageImperfections;
   shortPrompt: string;
   detailedPrompt: string;
   negativePrompt: string;
 };
 
-export type GeminiPromptResponse = GeminiVideoPromptResponse | GeminiImagePromptResponse | StructuredImagePromptResponse;
+// ── Natural language image analysis type ────────────────────────────
+
+export type ImagePromptResponse = {
+  rawText: string;
+  sections: Record<string, string>;
+  shortPrompt: string;
+  detailedPrompt: string;
+  negativePrompt: string;
+};
+
+export type GeminiPromptResponse = GeminiVideoPromptResponse | GeminiImagePromptResponse | StructuredImagePromptResponse | ImagePromptResponse;
 
 export type RuntimeMessage =
   | {

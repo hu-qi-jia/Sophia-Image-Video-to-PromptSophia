@@ -1,5 +1,4 @@
 import {
-  GEMINI_IMAGE_RESPONSE_SCHEMA,
   buildGeminiImageInstruction
 } from "./image";
 import {
@@ -18,7 +17,6 @@ import {
 import type { GeminiVideoPromptResponse, GeminiPromptResponse } from "../types";
 
 export {
-  GEMINI_IMAGE_RESPONSE_SCHEMA,
   GEMINI_VIDEO_RESPONSE_SCHEMA,
   buildGeminiImageInstruction,
   buildGeminiVideoInstruction,

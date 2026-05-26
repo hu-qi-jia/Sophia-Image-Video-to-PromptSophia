@@ -5,7 +5,6 @@ import {
   type PromptEnhancerMode
 } from "../prompts/enhancer";
 import {
-  GEMINI_IMAGE_RESPONSE_SCHEMA,
   GEMINI_VIDEO_RESPONSE_SCHEMA,
   buildGeminiImageInstruction,
   buildGeminiVideoInstruction,
@@ -209,8 +208,6 @@ export async function analyzeImageWithGemini({
         },
       ],
       generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: GEMINI_IMAGE_RESPONSE_SCHEMA,
         temperature: 0.4,
         topP: 0.9,
       },
