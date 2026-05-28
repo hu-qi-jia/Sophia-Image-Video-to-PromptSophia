@@ -59,9 +59,9 @@ export function App() {
               </nav>
             </div>
             <div className="header-actions" ref={menuRef}>
-              <button 
-                className="header-action-btn" 
-                aria-label="菜单" 
+              <button
+                className="header-action-btn"
+                aria-label="菜单"
                 onClick={() => setMenuOpen(!menuOpen)}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -72,7 +72,7 @@ export function App() {
               </button>
               {menuOpen && (
                 <div className="action-menu-dropdown">
-                  <button 
+                  <button
                     className="menu-item"
                     onClick={() => {
                       actions.setSubView("history");
@@ -86,7 +86,7 @@ export function App() {
                     </svg>
                     <span>历史记录</span>
                   </button>
-                  <button 
+                  <button
                     className="menu-item"
                     onClick={() => {
                       actions.setSubView("settings");
@@ -124,6 +124,15 @@ export function App() {
                 onEditResult={(val) => actions.updateIVTab("image", { editedResultText: val })}
                 onToggleExpanded={() => actions.updateIVTab("image", { isExpanded: !state.ivTabData.image.isExpanded })}
                 onFileDrop={(file) => actions.handleFileDrop(file, "image")}
+                displayStyleText={state.displayStyleText}
+                displayContentText={state.displayContentText}
+                showStyleCopy={state.showStyleCopy}
+                showContentCopy={state.showContentCopy}
+                onEditStyle={(val) => actions.updateIVTab("image", { editedStyleText: val })}
+                onEditContent={(val) => actions.updateIVTab("image", { editedContentText: val })}
+                onCopyStyle={actions.handleCopyStyle}
+                onCopyContent={actions.handleCopyContent}
+                onCopyAll={actions.handleCopyAll}
               />
             ) : null}
 
@@ -148,6 +157,15 @@ export function App() {
                 onToggleExpanded={() => actions.updateIVTab("video", { isExpanded: !state.ivTabData.video.isExpanded })}
                 onFrameSamplingModeChange={actions.handleFrameSamplingModeChange}
                 onFileDrop={(file) => actions.handleFileDrop(file, "video")}
+                displayStyleText={state.displayStyleText}
+                displayContentText={state.displayContentText}
+                showStyleCopy={state.showStyleCopy}
+                showContentCopy={state.showContentCopy}
+                onEditStyle={(val) => actions.updateIVTab("video", { editedStyleText: val })}
+                onEditContent={(val) => actions.updateIVTab("video", { editedContentText: val })}
+                onCopyStyle={actions.handleCopyStyle}
+                onCopyContent={actions.handleCopyContent}
+                onCopyAll={actions.handleCopyAll}
               />
             ) : null}
 
@@ -211,14 +229,11 @@ const StyledHeader = styled.header`
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
-  background: var(--glass-bg);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  border-bottom: 1px solid var(--glass-border);
-  box-shadow: var(--glass-inner-shadow);
   position: sticky;
   top: 0;
   z-index: 10;
+  background: transparent;
+  border-bottom: none;
 
   .header-brand {
     display: flex;
@@ -265,13 +280,13 @@ const StyledHeader = styled.header`
     transition: all 0.3s var(--ease-out);
 
     svg {
-      width: 15px;
-      height: 15px;
+      width: 17px;
+      height: 17px;
     }
 
     .tab-icon-img {
-      width: 15px;
-      height: 15px;
+      width: 17px;
+      height: 17px;
       object-fit: contain;
       filter: invert(60%) sepia(8%) saturate(200%) hue-rotate(180deg) brightness(85%) contrast(85%);
       transition: filter 0.3s var(--ease-out);
@@ -373,7 +388,7 @@ const StyledHeader = styled.header`
 
   .action-menu-dropdown {
     position: absolute;
-    top: calc(100% + 8px);
+    top: calc(100% + 2px);
     right: 0;
     min-width: 160px;
     background: var(--bg-card-solid);
@@ -391,7 +406,7 @@ const StyledHeader = styled.header`
   @keyframes menu-dropdown-in {
     from {
       opacity: 0;
-      transform: translateY(-8px) scale(0.95);
+      transform: translateY(-4px) scale(0.97);
     }
     to {
       opacity: 1;

@@ -8,21 +8,32 @@ import {
 
 const EnhancerFormCard = styled.section`
   position: relative;
-  border-radius: var(--radius-xl);
-  background: var(--glass-bg);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-shadow), var(--glass-inner-shadow);
-  padding: var(--space-4);
+  border-radius: var(--radius-2xl);
+  padding: var(--space-5);
   overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
-  transition: all var(--duration-normal) var(--ease-out);
+  transition: all var(--duration-lift) var(--ease-out);
+  min-height: 0;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 0.5px solid var(--glass-border);
+  box-shadow:
+    var(--glass-shadow),
+    var(--glass-inner-shadow),
+    var(--glass-edge-light);
+  animation: hero-rise 0.55s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
 
-  &:hover {
-    box-shadow: var(--glass-shadow-hover), var(--glass-inner-shadow);
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--glass-shine);
+    pointer-events: none;
+    z-index: 0;
   }
 
   .enhancer-mode-pills {
@@ -32,28 +43,31 @@ const EnhancerFormCard = styled.section`
     border-radius: 0;
     background: transparent;
     border: none;
-    border-bottom: 1px solid var(--glass-border);
+    border-bottom: 0.5px solid var(--glass-border);
     margin-bottom: var(--space-3);
     width: 100%;
+    position: relative;
+    z-index: 1;
   }
 
   .enhancer-pill {
-    min-height: 32px;
+    min-height: 36px;
     border: none;
     border-bottom: 2px solid transparent;
     border-radius: 0;
     background: transparent;
-    color: var(--text-secondary);
+    color: var(--text-tertiary);
     cursor: pointer;
-    font-size: var(--text-xxs);
-    font-weight: var(--font-medium);
+    font-size: var(--text-sm);
+    font-weight: var(--font-normal);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 4px;
+    gap: 5px;
     padding: 0 var(--space-3) var(--space-2);
     transition: all var(--duration-fast) var(--ease-out);
     flex: 1;
+    letter-spacing: 0.01em;
 
     svg {
       width: 14px;
@@ -73,6 +87,7 @@ const EnhancerFormCard = styled.section`
     border-left: none;
     border-right: none;
     border-top: none;
+    font-weight: var(--font-medium);
 
     &:hover {
       color: var(--text-primary);
@@ -83,19 +98,22 @@ const EnhancerFormCard = styled.section`
     display: grid;
     gap: var(--space-1);
     width: 100%;
+    position: relative;
+    z-index: 1;
   }
 
   .enhancer-textarea {
     width: 100%;
     min-height: 200px;
     resize: vertical;
-    border: 1px solid var(--glass-border);
+    border: 0.5px solid var(--glass-border);
     border-radius: var(--radius-md);
-    background: var(--bg-input);
+    background: rgba(255, 255, 255, 0.3);
     color: var(--text-primary);
-    padding: var(--space-3);
+    padding: var(--space-4);
     font-size: var(--text-sm);
-    line-height: 1.7;
+    line-height: 1.8;
+    letter-spacing: -0.005em;
     outline: none;
     transition: border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
     font-family: inherit;
@@ -105,11 +123,14 @@ const EnhancerFormCard = styled.section`
 
     &::placeholder {
       color: var(--text-placeholder);
+      font-weight: var(--font-normal);
+      letter-spacing: 0;
     }
 
     &:focus {
       border-color: var(--accent);
       box-shadow: 0 0 0 3px var(--accent-glow);
+      background: rgba(255, 255, 255, 0.5);
     }
   }
 
@@ -117,9 +138,11 @@ const EnhancerFormCard = styled.section`
     display: flex;
     justify-content: flex-end;
     gap: var(--space-3);
-    margin-top: var(--space-12);
+    margin-top: var(--space-4);
     width: 100%;
-    padding-top: var(--space-5);
+    padding-top: var(--space-4);
+    position: relative;
+    z-index: 1;
   }
 
   .upload-hint-warn {
@@ -127,6 +150,10 @@ const EnhancerFormCard = styled.section`
     color: var(--text-secondary);
     font-size: var(--text-xs);
     text-align: center;
+    font-weight: var(--font-medium);
+    letter-spacing: 0.01em;
+    position: relative;
+    z-index: 1;
   }
 `;
 

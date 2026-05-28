@@ -265,6 +265,8 @@ describe("formatImagePrompt", () => {
       shortPrompt: "test",
       detailedPrompt: SAMPLE_NL_RESPONSE,
       negativePrompt: "test",
+      styleText: "",
+      contentText: "",
     };
     expect(formatImagePrompt(promptResult)).toBe(SAMPLE_NL_RESPONSE);
   });
@@ -297,6 +299,8 @@ describe("formatImageAnalysis", () => {
       shortPrompt: "test",
       detailedPrompt: SAMPLE_NL_RESPONSE,
       negativePrompt: "test",
+      styleText: "",
+      contentText: "",
     };
     expect(formatImageAnalysis(promptResult)).toBe(SAMPLE_NL_RESPONSE);
   });

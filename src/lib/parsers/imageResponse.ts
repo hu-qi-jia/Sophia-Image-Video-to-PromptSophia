@@ -50,7 +50,45 @@ function extractShortPromptFromSections(sections: Record<string, string>): strin
 }
 
 function extractNegativePromptFromSections(sections: Record<string, string>): string {
-  return sections["CONSTRAINTS"] ?? "";
+  return sections["NEGATIVE PROMPT"] ?? sections["CONSTRAINTS"] ?? "";
+}
+
+const STYLE_TAGS = new Set([
+  "AESTHETIC HOOK", "STYLE & TEXTURE", "STYLE", "ATMOSPHERE", "COLOR",
+  "LIGHTING", "FRAME", "VISUAL HIERARCHY", "MATERIAL RESPONSE",
+  "ERA SIGNALS", "IMAGE PHYSICS", "OPTICAL DEPTH", "FILTER & PROCESSING",
+  "STYLE EXCLUSIONS", "PROMPT TAGS", "NEGATIVE PROMPT"
+]);
+
+const CONTENT_TAG_PREFIXES = ["SUBJECT", "SPATIAL LAYERS", "ENVIRONMENT", "IMPERFECTIONS", "CONSTRAINTS"];
+
+function isContentTag(tag: string): boolean {
+  return CONTENT_TAG_PREFIXES.some(prefix => tag.startsWith(prefix));
+}
+
+function splitSectionsByGroup(sections: Record<string, string>): {
+  styleText: string;
+  contentText: string;
+} {
+  const styleParts: string[] = [];
+  const contentParts: string[] = [];
+
+  for (const [tag, content] of Object.entries(sections)) {
+    const entry = `[${tag}]\n${content}`;
+    if (STYLE_TAGS.has(tag)) {
+      styleParts.push(entry);
+    } else if (isContentTag(tag)) {
+      contentParts.push(entry);
+    } else {
+      // Unknown tags default to content
+      contentParts.push(entry);
+    }
+  }
+
+  return {
+    styleText: styleParts.join("\n\n"),
+    contentText: contentParts.join("\n\n"),
+  };
 }
 
 export function parseImageResponse(rawText: string): ImagePromptResponse {
@@ -60,16 +98,28 @@ export function parseImageResponse(rawText: string): ImagePromptResponse {
     throw new Error("无法解析图片分析结果，请重试。(E5)");
   }
 
+  const { styleText, contentText } = splitSectionsByGroup(sections);
+
   return {
     rawText,
     sections,
     shortPrompt: extractShortPromptFromSections(sections),
     detailedPrompt: rawText,
     negativePrompt: extractNegativePromptFromSections(sections),
+    styleText,
+    contentText,
   };
 }
 
 // ── JSON format parser (legacy) ────────────────────────────────────
+
+function trySplitStyleContent(text: string): { styleText: string; contentText: string } {
+  const sections = parseSectionedText(text);
+  if (Object.keys(sections).length > 0) {
+    return splitSectionsByGroup(sections);
+  }
+  return { styleText: "", contentText: "" };
+}
 
 function normalizeStringArray(value: unknown): string[] {
   return Array.isArray(value)
@@ -144,6 +194,12 @@ function normalizeStructuredImageResponse(
   response.shortPrompt = safeTrim(response.shortPrompt);
   response.detailedPrompt = safeTrim(response.detailedPrompt);
   response.negativePrompt = safeTrim(response.negativePrompt);
+
+  if (!response.styleText || !response.contentText) {
+    const { styleText, contentText } = trySplitStyleContent(response.detailedPrompt);
+    response.styleText = response.styleText ?? styleText;
+    response.contentText = response.contentText ?? contentText;
+  }
 
   if (
     !isNonEmptyString(response.shortPrompt) &&

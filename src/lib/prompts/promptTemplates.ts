@@ -2,6 +2,9 @@ import {
   buildGeminiImageInstruction
 } from "./image";
 import {
+  buildCategoryImageInstruction
+} from "./imageCategoryPrompts";
+import {
   GEMINI_VIDEO_RESPONSE_SCHEMA,
   buildGeminiVideoInstruction,
   getTargetModelLabel
@@ -14,7 +17,7 @@ import {
   formatLegacyImagePrompt,
   formatLegacyImageAnalysis
 } from "../parsers/imageResponse";
-import type { GeminiVideoPromptResponse, GeminiPromptResponse } from "../types";
+import type { DetectedImageInfo, GeminiVideoPromptResponse, GeminiPromptResponse, ImageCategory, TargetModelId } from "../types";
 
 export {
   GEMINI_VIDEO_RESPONSE_SCHEMA,
@@ -28,6 +31,21 @@ export {
   formatLegacyImagePrompt,
   formatLegacyImageAnalysis
 };
+
+/**
+ * Build image analysis instruction. Routes to category-specific template
+ * when a category is selected, otherwise uses the generic template.
+ */
+export function buildImageInstruction(
+  targetModel: TargetModelId,
+  imageInfo?: DetectedImageInfo,
+  category?: ImageCategory
+): string {
+  if (category && category !== "auto") {
+    return buildCategoryImageInstruction(category, targetModel, imageInfo);
+  }
+  return buildGeminiImageInstruction(targetModel, imageInfo);
+}
 
 export function formatVideoPrompt(promptResult: GeminiVideoPromptResponse): string {
   return JSON.stringify(promptResult, null, 2);

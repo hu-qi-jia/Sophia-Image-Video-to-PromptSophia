@@ -16,6 +16,7 @@ import {
   setActiveModel,
 } from "../lib/storage";
 import type {
+  // ImageCategory,
   ModelProvider,
   PromptHistoryItem,
   StoredSettings,
@@ -100,6 +101,25 @@ export function useAppState() {
     if (currentData.editedResultText !== null) return currentData.editedResultText;
     return currentData.rawResultText;
   }, [currentData.resultMode, currentData.promptResult, currentData.rawResultText, currentData.resultText, currentData.editedResultText]);
+
+  const displayStyleText = useMemo(() => {
+    if (currentData.resultMode !== "text" || !currentData.promptResult) return "";
+    if (currentData.editedStyleText !== null) return currentData.editedStyleText;
+    const pr = currentData.promptResult;
+    if ("styleText" in pr && typeof pr.styleText === "string") return pr.styleText;
+    return "";
+  }, [currentData.resultMode, currentData.promptResult, currentData.editedStyleText]);
+
+  const displayContentText = useMemo(() => {
+    if (currentData.resultMode !== "text" || !currentData.promptResult) return "";
+    if (currentData.editedContentText !== null) return currentData.editedContentText;
+    const pr = currentData.promptResult;
+    if ("contentText" in pr && typeof pr.contentText === "string") return pr.contentText;
+    return "";
+  }, [currentData.resultMode, currentData.promptResult, currentData.editedContentText]);
+
+  const showStyleCopy = displayStyleText.trim().length > 0;
+  const showContentCopy = displayContentText.trim().length > 0;
 
   useEffect(() => {
     void (async () => {
@@ -266,6 +286,9 @@ export function useAppState() {
       promptResult: null,
       copyLabel: "复制",
       editedResultText: null,
+      editedStyleText: null,
+      editedContentText: null,
+      copyAllLabel: "复制全部",
       isExpanded: false,
     });
   }
@@ -379,6 +402,7 @@ export function useAppState() {
           targetModel: settings.targetModel,
           imageDataUrl,
           imageInfo,
+          category: "auto" /* ivTabData[tab].selectedCategory */,
           signal: controller.signal,
           onProgress: (text: string) => {
             updateIVTab(tab, { streamText: text, resultText: text });
@@ -557,6 +581,34 @@ export function useAppState() {
     }
   }
 
+  async function handleCopyStyle() {
+    if (!displayStyleText.trim()) return;
+    try {
+      await navigator.clipboard.writeText(displayStyleText);
+      updateIVTab(currentIVTab, { copyLabel: "已复制" });
+      window.setTimeout(() => updateIVTab(currentIVTab, { copyLabel: "复制" }), 1600);
+    } catch { /* ignore */ }
+  }
+
+  async function handleCopyContent() {
+    if (!displayContentText.trim()) return;
+    try {
+      await navigator.clipboard.writeText(displayContentText);
+      updateIVTab(currentIVTab, { copyLabel: "已复制" });
+      window.setTimeout(() => updateIVTab(currentIVTab, { copyLabel: "复制" }), 1600);
+    } catch { /* ignore */ }
+  }
+
+  async function handleCopyAll() {
+    const combined = [displayStyleText, displayContentText].filter(Boolean).join("\n\n");
+    if (!combined.trim()) return;
+    try {
+      await navigator.clipboard.writeText(combined);
+      updateIVTab(currentIVTab, { copyAllLabel: "已复制" });
+      window.setTimeout(() => updateIVTab(currentIVTab, { copyAllLabel: "复制全部" }), 1600);
+    } catch { /* ignore */ }
+  }
+
   function getHistoryCopyText(item: PromptHistoryItem): string {
     if (item.promptResult) {
       return JSON.stringify(item.promptResult, null, 2);
@@ -722,6 +774,10 @@ export function useAppState() {
     setSubView("main");
   }
 
+  // function handleCategoryChange(category: ImageCategory) {
+  //   updateIVTab(currentIVTab, { selectedCategory: category });
+  // }
+
   const currentMediaPreview = useMemo(() => {
     const ms = currentData.mediaSource;
     if (ms.kind === "web-image" && ms.previewUrl) {
@@ -766,11 +822,16 @@ export function useAppState() {
       isAnalyzing,
       canAnalyze,
       showCopy,
+      showStyleCopy,
+      showContentCopy,
       canEnhancePrompt,
       showEnhancerCopy,
       displayResultText,
+      displayStyleText,
+      displayContentText,
       currentMediaPreview,
       currentMediaAspectRatio,
+      // selectedCategory: currentData.selectedCategory,
     },
     refs: {
       imageFileRef,
@@ -790,6 +851,9 @@ export function useAppState() {
       handleLocalUpload,
       handleFileDrop,
       handleCopy,
+      handleCopyStyle,
+      handleCopyContent,
+      handleCopyAll,
       handleCopyHistory,
       getHistoryTypeLabel,
       handleDeleteHistory,
@@ -806,6 +870,7 @@ export function useAppState() {
       handleAbortEnhancer,
       handleCopyEnhancerResult,
       handleTabChange,
+      // handleCategoryChange,
     },
   };
 }

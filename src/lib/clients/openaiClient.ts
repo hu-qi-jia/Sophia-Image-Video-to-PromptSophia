@@ -5,7 +5,7 @@ import {
   type PromptEnhancerMode
 } from "../prompts/enhancer";
 import {
-  buildGeminiImageInstruction,
+  buildImageInstruction,
   buildGeminiVideoInstruction,
   parseGeminiImageResponse,
   parseGeminiVideoResponse
@@ -14,6 +14,7 @@ import {
   type DetectedImageInfo,
   type DetectedVideoInfo,
   type ExtractedFrame,
+  type ImageCategory,
   type TargetModelId
 } from "../types";
 import { resizeImageDataUrl } from "../media/imageUtils";
@@ -145,6 +146,7 @@ export async function analyzeImage({
   targetModel,
   imageDataUrl,
   imageInfo,
+  category,
   signal,
 }: {
   apiKey: string;
@@ -153,10 +155,11 @@ export async function analyzeImage({
   targetModel: TargetModelId;
   imageDataUrl: string;
   imageInfo?: DetectedImageInfo;
+  category?: ImageCategory;
   signal?: AbortSignal;
 }): Promise<ReturnType<typeof parseGeminiImageResponse>> {
   const endpoint = `${baseUrl}/chat/completions`;
-  const instruction = buildGeminiImageInstruction(targetModel, imageInfo);
+  const instruction = buildImageInstruction(targetModel, imageInfo, category);
 
   const compressedDataUrl = await resizeImageDataUrl(imageDataUrl);
   const { mimeType, base64 } = dataUrlToBase64(compressedDataUrl);
@@ -222,6 +225,7 @@ export async function analyzeImageStream({
   targetModel,
   imageDataUrl,
   imageInfo,
+  category,
   signal,
   onProgress,
 }: {
@@ -231,11 +235,12 @@ export async function analyzeImageStream({
   targetModel: TargetModelId;
   imageDataUrl: string;
   imageInfo?: DetectedImageInfo;
+  category?: ImageCategory;
   signal?: AbortSignal;
   onProgress?: (text: string) => void;
 }): Promise<ReturnType<typeof parseGeminiImageResponse>> {
   const endpoint = `${baseUrl}/chat/completions`;
-  const instruction = buildGeminiImageInstruction(targetModel, imageInfo);
+  const instruction = buildImageInstruction(targetModel, imageInfo, category);
 
   const compressedDataUrl = await resizeImageDataUrl(imageDataUrl);
   const { mimeType, base64 } = dataUrlToBase64(compressedDataUrl);

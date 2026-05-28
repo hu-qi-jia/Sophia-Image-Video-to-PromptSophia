@@ -6,7 +6,7 @@ import {
 } from "../prompts/enhancer";
 import {
   GEMINI_VIDEO_RESPONSE_SCHEMA,
-  buildGeminiImageInstruction,
+  buildImageInstruction,
   buildGeminiVideoInstruction,
   parseGeminiImageResponse,
   parseGeminiVideoResponse
@@ -16,6 +16,7 @@ import {
   type DetectedImageInfo,
   type DetectedVideoInfo,
   type ExtractedFrame,
+  type ImageCategory,
   type TargetModelId
 } from "../types";
 
@@ -168,15 +169,17 @@ export async function analyzeImageWithGemini({
   imageUrl,
   imageDataUrl,
   imageInfo,
+  category,
 }: {
   apiKey: string;
   targetModel: TargetModelId;
   imageUrl?: string;
   imageDataUrl?: string;
   imageInfo?: DetectedImageInfo;
+  category?: ImageCategory;
 }): Promise<ReturnType<typeof parseGeminiImageResponse>> {
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_ANALYSIS_MODEL}:generateContent`;
-  const instruction = buildGeminiImageInstruction(targetModel, imageInfo);
+  const instruction = buildImageInstruction(targetModel, imageInfo, category);
   const imagePart = imageUrl
     ? {
         file_data: {

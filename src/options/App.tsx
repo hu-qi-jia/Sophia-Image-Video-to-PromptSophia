@@ -281,6 +281,9 @@ export function App() {
                   className={`model-list-item${model.id === settings.activeModelId ? " is-active" : ""}`}
                   onClick={() => handleSelectModel(model.id)}
                 >
+                  <div className="model-list-select">
+                    <div className={`model-list-radio${model.id === settings.activeModelId ? " is-selected" : ""}`} />
+                  </div>
                   <div className="model-list-info">
                     <div className="model-list-name">
                       <div>{model.name || "未命名"}</div>

@@ -1,2 +1,18 @@
 node_modules/
 .DS_Store
+
+# Build output
+dist/
+
+# Claude Code / Agent config
+.claude/
+.agents/
+skills-lock.json
+
+# Training images
+image_train/
+
+# OS files
+Thumbs.db
+*.swp
+*.swo
