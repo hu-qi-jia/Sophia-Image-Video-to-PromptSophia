@@ -1,12 +1,20 @@
 import { analyzeImageStream } from "../lib/clients/aiClient";
 import { fetchImageAsDataUrl } from "../lib/media/imageUtils";
 import {
+  addManualDrawerTab,
   clearAnalysisState,
+  clearGlobalAnalysisState,
   createAnalysisState,
   getActiveModel,
-  getAnalysisState,
+  getGlobalAnalysisState,
+  getGlobalDrawerOpen,
+  getManualDrawerTabs,
+  getPanelMode,
   getSettings,
-  saveAnalysisState
+  removeManualDrawerTab,
+  saveAnalysisState,
+  saveGlobalAnalysisState,
+  setGlobalDrawerOpen,
 } from "../lib/storage";
 import {
   DEFAULT_TARGET_MODEL,
@@ -14,43 +22,39 @@ import {
   type AnalysisState,
   type DetectedImageInfo,
   type GeminiPromptResponse,
-  type RuntimeMessage
+  type RuntimeMessage,
 } from "../lib/types";
 
 const CONTEXT_MENU_ID = "analyze-image-to-prompt";
 
-async function configureSidePanelBehavior(): Promise<void> {
-  await chrome.sidePanel.setPanelBehavior({
-    openPanelOnActionClick: true
-  });
-}
-
-async function createContextMenu(): Promise<void> {
-  await chrome.contextMenus.removeAll();
-  chrome.contextMenus.create({
-    id: CONTEXT_MENU_ID,
-    title: "分析图片生成提示词",
-    contexts: ["image"]
-  });
-}
+// ── Helpers ────────────────────────────────────────────────────────
 
 function toSerializableState(state: AnalysisState): AnalysisState {
   return {
     ...state,
-    updatedAt: Date.now()
+    updatedAt: Date.now(),
   };
 }
 
 async function publishState(state: AnalysisState): Promise<void> {
   const serializableState = toSerializableState(state);
-  await saveAnalysisState(serializableState);
-  try {
-    await chrome.runtime.sendMessage({
-      type: "VIDEO2PROMPT_ANALYSIS_STATE_UPDATED",
-      state: serializableState
-    } satisfies RuntimeMessage);
-  } catch {
-    // Ignore when the side panel is closed and no receiver is listening.
+  const mode = await getPanelMode();
+
+  if (mode === "global") {
+    await saveGlobalAnalysisState(serializableState);
+  } else if (state.tabId != null) {
+    await saveAnalysisState(serializableState);
+  }
+
+  // Broadcast to all content scripts
+  const tabs = await chrome.tabs.query({});
+  for (const tab of tabs) {
+    if (tab.id) {
+      chrome.tabs.sendMessage(tab.id, {
+        type: "VIDEO2PROMPT_ANALYSIS_STATE_UPDATED",
+        state: serializableState,
+      } satisfies RuntimeMessage).catch(() => { /* content script not loaded on this tab */ });
+    }
   }
 }
 
@@ -71,12 +75,6 @@ async function getActiveTab(): Promise<chrome.tabs.Tab | null> {
   return tabs[0] ?? null;
 }
 
-function openSidePanelForTab(tabId: number): void {
-  chrome.sidePanel.open({ tabId }).catch((error) => {
-    console.error("PromptLab failed to open side panel.", error);
-  });
-}
-
 function buildWebImageInfo(
   imageUrl: string,
   tab?: chrome.tabs.Tab
@@ -85,13 +83,46 @@ function buildWebImageInfo(
     found: true,
     src: imageUrl,
     pageTitle: tab?.title,
-    pageUrl: tab?.url
+    pageUrl: tab?.url,
   };
 }
 
+// ── Drawer toggle ──────────────────────────────────────────────────
+
+async function toggleGlobalDrawer(): Promise<void> {
+  const currentlyOpen = await getGlobalDrawerOpen();
+  const nextOpen = !currentlyOpen;
+  await setGlobalDrawerOpen(nextOpen);
+
+  const tabs = await chrome.tabs.query({});
+  for (const tab of tabs) {
+    if (tab.id) {
+      chrome.tabs.sendMessage(tab.id, {
+        type: "VIDEO2PROMPT_SET_GLOBAL_DRAWER",
+        open: nextOpen,
+      } satisfies RuntimeMessage).catch(() => { /* content script not loaded */ });
+    }
+  }
+}
+
+async function toggleManualDrawer(tabId: number): Promise<void> {
+  const openTabs = await getManualDrawerTabs();
+  if (openTabs.includes(tabId)) {
+    await removeManualDrawerTab(tabId);
+  } else {
+    await addManualDrawerTab(tabId);
+  }
+  chrome.tabs.sendMessage(tabId, {
+    type: "VIDEO2PROMPT_TOGGLE_DRAWER",
+    tabId,
+  } satisfies RuntimeMessage).catch(() => { /* content script not loaded */ });
+}
+
+// ── Web image analysis ─────────────────────────────────────────────
+
 async function startWebImageAnalysis({
   tabId,
-  imageUrl
+  imageUrl,
 }: {
   tabId?: number;
   imageUrl?: string;
@@ -128,14 +159,17 @@ async function startWebImageAnalysis({
       "需要完成模型配置。请先在设置中填写 API 密钥、基础 URL 和模型名称。",
       targetModel,
       {
-        errorMessage: "需要完成模型配置。请先在设置中填写 API 密钥、基础 URL 和模型名称。"
+        errorMessage: "需要完成模型配置。请先在设置中填写 API 密钥、基础 URL 和模型名称。",
       }
     );
-    try {
-      await chrome.runtime.sendMessage({
-        type: "VIDEO2PROMPT_FOCUS_API_KEY"
-      } satisfies RuntimeMessage);
-    } catch {
+    // Broadcast focus API key message
+    const tabs = await chrome.tabs.query({});
+    for (const tab of tabs) {
+      if (tab.id) {
+        chrome.tabs.sendMessage(tab.id, {
+          type: "VIDEO2PROMPT_FOCUS_API_KEY",
+        } satisfies RuntimeMessage).catch(() => {});
+      }
     }
     return { ok: false, state };
   }
@@ -147,8 +181,7 @@ async function startWebImageAnalysis({
       "未找到图片。请直接右键点击标准网页图片后重试。",
       targetModel,
       {
-        errorMessage:
-          "未找到图片。请直接右键点击标准网页图片后重试。"
+        errorMessage: "未找到图片。请直接右键点击标准网页图片后重试。",
       }
     );
     return { ok: false, state };
@@ -160,7 +193,7 @@ async function startWebImageAnalysis({
     mediaType: "image",
     sourceType: "web",
     imageInfo,
-    previewFrameUrl: imageUrl
+    previewFrameUrl: imageUrl,
   });
 
   try {
@@ -168,7 +201,7 @@ async function startWebImageAnalysis({
       mediaType: "image",
       sourceType: "web",
       imageInfo,
-      previewFrameUrl: imageUrl
+      previewFrameUrl: imageUrl,
     });
 
     const imageDataUrl = await fetchImageAsDataUrl(imageUrl);
@@ -188,9 +221,9 @@ async function startWebImageAnalysis({
         void publishState({
           ...baseState,
           streamProgress: text.slice(-600),
-          updatedAt: Date.now()
+          updatedAt: Date.now(),
         });
-      }
+      },
     });
 
     const state = await setState(
@@ -206,7 +239,7 @@ async function startWebImageAnalysis({
         imageSummary: result.imageSummary,
         generatedPrompt: result.generatedPrompt,
         rawResult: result.rawResult,
-        promptResult: result.promptResult as GeminiPromptResponse
+        promptResult: result.promptResult as GeminiPromptResponse,
       }
     );
 
@@ -222,90 +255,171 @@ async function startWebImageAnalysis({
       sourceType: "web",
       imageInfo,
       previewFrameUrl: imageUrl,
-      errorMessage: message
+      errorMessage: message,
     });
     return { ok: false, state };
   }
 }
 
+// ── Lifecycle ──────────────────────────────────────────────────────
+
+async function createContextMenu(): Promise<void> {
+  await chrome.contextMenus.removeAll();
+  chrome.contextMenus.create({
+    id: CONTEXT_MENU_ID,
+    title: "分析图片生成提示词",
+    contexts: ["image"],
+  });
+}
+
 chrome.runtime.onInstalled.addListener(() => {
-  void (async () => {
-    await configureSidePanelBehavior();
-    await chrome.sidePanel.setOptions({
-      path: "sidepanel.html",
-      enabled: true
-    });
-    await createContextMenu();
-  })();
+  void createContextMenu();
 });
 
 chrome.runtime.onStartup.addListener(() => {
-  void (async () => {
-    await configureSidePanelBehavior();
-    await chrome.sidePanel.setOptions({
-      path: "sidepanel.html",
-      enabled: true
-    });
-  })();
+  // No-op: content scripts are declared in manifest and auto-injected
 });
+
+// ── Tab cleanup ────────────────────────────────────────────────────
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  void removeManualDrawerTab(tabId);
+});
+
+// ── Context menu ───────────────────────────────────────────────────
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId !== CONTEXT_MENU_ID || !tab?.id) {
     return;
   }
 
-  openSidePanelForTab(tab.id);
+  // Ensure drawer is open on this tab
+  void (async () => {
+    const mode = await getPanelMode();
+    if (mode === "global") {
+      await setGlobalDrawerOpen(true);
+      chrome.tabs.sendMessage(tab.id!, {
+        type: "VIDEO2PROMPT_SET_GLOBAL_DRAWER",
+        open: true,
+      } satisfies RuntimeMessage).catch(() => {});
+    } else {
+      await addManualDrawerTab(tab.id!);
+      chrome.tabs.sendMessage(tab.id!, {
+        type: "VIDEO2PROMPT_TOGGLE_DRAWER",
+        tabId: tab.id!,
+      } satisfies RuntimeMessage).catch(() => {});
+    }
+  })();
 
   void startWebImageAnalysis({
     tabId: tab.id,
-    imageUrl: info.srcUrl
+    imageUrl: info.srcUrl,
   });
 });
 
+// ── Action icon click ──────────────────────────────────────────────
+
 chrome.action.onClicked.addListener((tab) => {
-  if (!tab.id) {
-    return;
-  }
+  if (!tab.id) return;
 
-  openSidePanelForTab(tab.id);
+  void (async () => {
+    const mode = await getPanelMode();
+    if (mode === "global") {
+      await toggleGlobalDrawer();
+    } else {
+      await toggleManualDrawer(tab.id!);
+    }
+  })();
 });
 
-chrome.runtime.onMessage.addListener((message: RuntimeMessage, _sender, sendResponse) => {
-  if (message.type === "VIDEO2PROMPT_START_ANALYSIS") {
-    void startWebImageAnalysis({
-      tabId: message.tabId,
-      imageUrl: message.imageUrl
-    }).then(sendResponse);
-    return true;
+// ── Message handling ───────────────────────────────────────────────
+
+chrome.runtime.onMessage.addListener(
+  (message: RuntimeMessage, sender, sendResponse) => {
+    // ── Start analysis (from context menu or side panel) ──────────
+    if (message.type === "VIDEO2PROMPT_START_ANALYSIS") {
+      void startWebImageAnalysis({
+        tabId: message.tabId,
+        imageUrl: message.imageUrl,
+      }).then(sendResponse);
+      return true;
+    }
+
+    // ── Get panel context (used by useAppState init) ──────────────
+    if (message.type === "VIDEO2PROMPT_GET_PANEL_CONTEXT") {
+      void (async () => {
+        const mode = await getPanelMode();
+        const activeTab = await getActiveTab();
+        const activeTabId = activeTab?.id ?? null;
+
+        let state: AnalysisState | null = null;
+        if (mode === "global") {
+          state = await getGlobalAnalysisState();
+        } else if (activeTabId) {
+          state = await chrome.storage.local
+            .get(`video2prompt:analysis:${activeTabId}`)
+            .then((r) => (r[`video2prompt:analysis:${activeTabId}`] as AnalysisState) ?? null);
+        }
+
+        sendResponse({ activeTabId, state });
+      })();
+      return true;
+    }
+
+    // ── Clear active analysis ─────────────────────────────────────
+    if (message.type === "VIDEO2PROMPT_CLEAR_ACTIVE_ANALYSIS") {
+      void (async () => {
+        const mode = await getPanelMode();
+        const activeTab = await getActiveTab();
+        const resolvedTabId = message.tabId ?? activeTab?.id ?? null;
+
+        if (mode === "global") {
+          await clearGlobalAnalysisState();
+        } else if (resolvedTabId) {
+          await clearAnalysisState(resolvedTabId);
+        }
+
+        sendResponse({ ok: true });
+      })();
+      return true;
+    }
+
+    // ── Set global drawer (from drawer close button) ──────────────
+    if (message.type === "VIDEO2PROMPT_SET_GLOBAL_DRAWER") {
+      void (async () => {
+        await setGlobalDrawerOpen(message.open);
+        const tabs = await chrome.tabs.query({});
+        for (const tab of tabs) {
+          if (tab.id) {
+            chrome.tabs.sendMessage(tab.id, {
+              type: "VIDEO2PROMPT_SET_GLOBAL_DRAWER",
+              open: message.open,
+            } satisfies RuntimeMessage).catch(() => {});
+          }
+        }
+      })();
+      return false;
+    }
+
+    // ── Get drawer state (content script init) ────────────────────
+    if (message.type === "VIDEO2PROMPT_GET_DRAWER_STATE") {
+      void (async () => {
+        const mode = await getPanelMode();
+        const senderTabId = sender.tab?.id;
+        let drawerOpen = false;
+
+        if (mode === "global") {
+          drawerOpen = await getGlobalDrawerOpen();
+        } else if (senderTabId) {
+          const openTabs = await getManualDrawerTabs();
+          drawerOpen = openTabs.includes(senderTabId);
+        }
+
+        sendResponse({ mode, drawerOpen });
+      })();
+      return true;
+    }
+
+    return false;
   }
-
-  if (message.type === "VIDEO2PROMPT_GET_PANEL_CONTEXT") {
-    void (async () => {
-      const activeTab = await getActiveTab();
-      const activeTabId = activeTab?.id ?? null;
-      const state = activeTabId ? await getAnalysisState(activeTabId) : null;
-      sendResponse({
-        activeTabId,
-        state
-      });
-    })();
-    return true;
-  }
-
-  if (message.type === "VIDEO2PROMPT_CLEAR_ACTIVE_ANALYSIS") {
-    void (async () => {
-      const activeTab = await getActiveTab();
-      const resolvedTabId = message.tabId ?? activeTab?.id ?? null;
-      if (!resolvedTabId) {
-        sendResponse({ ok: false });
-        return;
-      }
-
-      await clearAnalysisState(resolvedTabId);
-      sendResponse({ ok: true });
-    })();
-    return true;
-  }
-
-  return false;
-});
+);

@@ -1,0 +1,133 @@
+/* ── Sophia Drawer Styles ───────────────────────────────────────────
+   These styles live inside the Shadow DOM and are isolated from
+   the host page's CSS. CSS custom properties from shared.css are
+   available because they are injected before this stylesheet.
+   ────────────────────────────────────────────────────────────────── */
+
+/* ── Host element ────────────────────────────────────────────────── */
+:host {
+  all: initial;
+  display: block;
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 420px;
+  max-width: 100vw;
+  height: 100vh;
+  z-index: 2147483646;
+  pointer-events: none;
+  font-family: "PingFang SC", "Inter", -apple-system, "Microsoft YaHei", sans-serif;
+}
+
+/* ── Reset inherited styles inside Shadow DOM ────────────────────── */
+:host * {
+  all: revert;
+}
+
+/* ── Drawer panel ────────────────────────────────────────────────── */
+.sophia-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 420px;
+  max-width: 100vw;
+  height: 100vh;
+  background: var(--bg-page, #0a0a0f);
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.4);
+  pointer-events: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  z-index: 1;
+  animation: drawer-slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes drawer-slide-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+/* ── Collapsed handle ────────────────────────────────────────────── */
+.sophia-drawer-handle {
+  position: fixed;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 72px;
+  border-radius: 12px 0 0 12px;
+  background: var(--glass-bg, rgba(255, 255, 255, 0.06));
+  border: 0.5px solid var(--glass-border, rgba(255, 255, 255, 0.08));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  pointer-events: auto;
+  z-index: 1;
+  transition: background 0.2s ease;
+}
+
+.sophia-drawer-handle:hover {
+  background: var(--glass-bg-hover, rgba(255, 255, 255, 0.1));
+}
+
+.sophia-drawer-handle-icon {
+  width: 20px;
+  height: 20px;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+.sophia-drawer-handle:hover .sophia-drawer-handle-icon {
+  opacity: 1;
+}
+
+/* ── Close button ────────────────────────────────────────────────── */
+.sophia-drawer-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 0.5px solid var(--glass-border, rgba(255, 255, 255, 0.08));
+  background: var(--glass-bg, rgba(255, 255, 255, 0.06));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  cursor: pointer;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary, #888);
+  transition: all 0.2s ease;
+}
+
+.sophia-drawer-close:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--text-primary, #fff);
+}
+
+.sophia-drawer-close svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ── Accessibility ────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .sophia-drawer {
+    animation: none;
+  }
+}
+
+@media print {
+  .sophia-drawer,
+  .sophia-drawer-handle {
+    display: none !important;
+  }
+}
