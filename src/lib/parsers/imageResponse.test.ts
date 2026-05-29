@@ -267,6 +267,7 @@ describe("formatImagePrompt", () => {
       negativePrompt: "test",
       styleText: "",
       contentText: "",
+      warnings: [],
     };
     expect(formatImagePrompt(promptResult)).toBe(SAMPLE_NL_RESPONSE);
   });
@@ -301,6 +302,7 @@ describe("formatImageAnalysis", () => {
       negativePrompt: "test",
       styleText: "",
       contentText: "",
+      warnings: [],
     };
     expect(formatImageAnalysis(promptResult)).toBe(SAMPLE_NL_RESPONSE);
   });

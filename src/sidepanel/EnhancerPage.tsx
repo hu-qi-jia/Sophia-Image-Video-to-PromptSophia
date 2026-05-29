@@ -9,7 +9,7 @@ import {
 const EnhancerFormCard = styled.section`
   position: relative;
   border-radius: var(--radius-2xl);
-  padding: var(--space-5);
+  padding: var(--space-3);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -44,14 +44,14 @@ const EnhancerFormCard = styled.section`
     background: transparent;
     border: none;
     border-bottom: 0.5px solid var(--glass-border);
-    margin-bottom: var(--space-3);
+    margin-bottom: var(--space-2);
     width: 100%;
     position: relative;
     z-index: 1;
   }
 
   .enhancer-pill {
-    min-height: 36px;
+    min-height: 30px;
     border: none;
     border-bottom: 2px solid transparent;
     border-radius: 0;
@@ -104,7 +104,7 @@ const EnhancerFormCard = styled.section`
 
   .enhancer-textarea {
     width: 100%;
-    min-height: 200px;
+    min-height: 120px;
     resize: vertical;
     border: 0.5px solid var(--glass-border);
     border-radius: var(--radius-md);
@@ -138,9 +138,9 @@ const EnhancerFormCard = styled.section`
     display: flex;
     justify-content: flex-end;
     gap: var(--space-3);
-    margin-top: var(--space-4);
+    margin-top: var(--space-2);
     width: 100%;
-    padding-top: var(--space-4);
+    padding-top: 0;
     position: relative;
     z-index: 1;
   }

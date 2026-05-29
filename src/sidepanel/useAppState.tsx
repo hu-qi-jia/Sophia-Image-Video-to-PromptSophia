@@ -402,7 +402,7 @@ export function useAppState() {
           targetModel: settings.targetModel,
           imageDataUrl,
           imageInfo,
-          category: "auto" /* ivTabData[tab].selectedCategory */,
+          // category: "auto" /* ivTabData[tab].selectedCategory */,
           signal: controller.signal,
           onProgress: (text: string) => {
             updateIVTab(tab, { streamText: text, resultText: text });

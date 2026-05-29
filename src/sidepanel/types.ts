@@ -4,14 +4,14 @@ import type {
   DetectedImageInfo,
   DetectedVideoInfo,
   FrameSamplingMode,
-  ImageCategory,
+  // ImageCategory,
   PromptEnhancerMode,
   PromptFormat,
   GeminiPromptResponse,
   AnalysisState,
   TargetModelId,
 } from "../lib/types";
-import { DEFAULT_IMAGE_CATEGORY, DEFAULT_TARGET_MODEL } from "../lib/types";
+import { /* DEFAULT_IMAGE_CATEGORY, */ DEFAULT_TARGET_MODEL } from "../lib/types";
 
 export type {
   AnalysisMediaType,
@@ -19,7 +19,7 @@ export type {
   DetectedImageInfo,
   DetectedVideoInfo,
   FrameSamplingMode,
-  ImageCategory,
+  // ImageCategory,
   PromptEnhancerMode,
   PromptFormat,
   GeminiPromptResponse,
@@ -49,7 +49,7 @@ export type MediaSource =
 export type IVTabData = {
   mediaSource: MediaSource;
   isAnalyzingLocal: boolean;
-  selectedCategory: ImageCategory;
+  // selectedCategory: ImageCategory;
   resultMode: "empty" | "loading" | "text" | "error";
   resultText: string;
   streamText: string;
@@ -71,7 +71,7 @@ export function createInitialIVTabData(targetModel: TargetModelId = DEFAULT_TARG
   return {
     mediaSource: { kind: "none" },
     isAnalyzingLocal: false,
-    selectedCategory: DEFAULT_IMAGE_CATEGORY,
+    // selectedCategory: DEFAULT_IMAGE_CATEGORY,
     resultMode: "empty",
     resultText: "结果将在此呈现",
     streamText: "",

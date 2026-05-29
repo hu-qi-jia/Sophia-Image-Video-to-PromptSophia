@@ -1,4 +1,5 @@
 import { cleanEnhancedPrompt, parseDataUrl, readApiError } from "./apiShared";
+import { resizeImageDataUrl } from "../media/imageUtils";
 import {
   buildPromptEnhancerImageInstruction,
   buildPromptEnhancerVideoInstruction,
@@ -16,7 +17,7 @@ import {
   type DetectedImageInfo,
   type DetectedVideoInfo,
   type ExtractedFrame,
-  type ImageCategory,
+  // type ImageCategory,
   type TargetModelId
 } from "../types";
 
@@ -169,17 +170,17 @@ export async function analyzeImageWithGemini({
   imageUrl,
   imageDataUrl,
   imageInfo,
-  category,
+  // category,
 }: {
   apiKey: string;
   targetModel: TargetModelId;
   imageUrl?: string;
   imageDataUrl?: string;
   imageInfo?: DetectedImageInfo;
-  category?: ImageCategory;
+  // category?: ImageCategory;
 }): Promise<ReturnType<typeof parseGeminiImageResponse>> {
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_ANALYSIS_MODEL}:generateContent`;
-  const instruction = buildImageInstruction(targetModel, imageInfo, category);
+  const instruction = buildImageInstruction(targetModel, imageInfo);
   const imagePart = imageUrl
     ? {
         file_data: {
@@ -189,7 +190,7 @@ export async function analyzeImageWithGemini({
       }
     : imageDataUrl
       ? {
-          inline_data: dataUrlToInlinePart(imageDataUrl),
+          inline_data: dataUrlToInlinePart(await resizeImageDataUrl(imageDataUrl)),
         }
       : null;
 
@@ -211,8 +212,8 @@ export async function analyzeImageWithGemini({
         },
       ],
       generationConfig: {
-        temperature: 0.4,
-        topP: 0.9,
+        temperature: 0.3,
+        topP: 0.85,
       },
     }),
   });

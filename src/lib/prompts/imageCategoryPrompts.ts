@@ -1,7 +1,11 @@
+// ── DISABLED: Category-specific prompts are no longer used. ────────
+// All images now use the generic prompt from image.ts.
+// This file is kept for reference only.
+
 import {
   TARGET_MODELS,
   type DetectedImageInfo,
-  type ImageCategory,
+  // type ImageCategory,
   type TargetModelId
 } from "../types";
 import { inferImageAspectRatio } from "./image";
@@ -1072,7 +1076,7 @@ Fantasy-specific: blurry, lowres, bad anatomy, extra limbs, missing limbs, defor
 
 // ── Main Builder ───────────────────────────────────────────────────
 
-function getCategoryInstructions(category: Exclude<ImageCategory, "auto">): string {
+function getCategoryInstructions(category: string /* Exclude<ImageCategory, "auto"> */): string {
   switch (category) {
     case "portrait":
       return buildPortraitInstructions();
@@ -1088,6 +1092,8 @@ function getCategoryInstructions(category: Exclude<ImageCategory, "auto">): stri
       return buildArtInstructions();
     case "fantasy":
       return buildFantasyInstructions();
+    default:
+      return "";
   }
 }
 
@@ -1096,7 +1102,7 @@ function targetModelLabel(targetModel: TargetModelId): string {
 }
 
 export function buildCategoryImageInstruction(
-  category: Exclude<ImageCategory, "auto">,
+  category: string /* Exclude<ImageCategory, "auto"> */,
   targetModel: TargetModelId,
   imageInfo?: DetectedImageInfo
 ): string {

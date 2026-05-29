@@ -24,7 +24,58 @@ function stripPromptLabel(value: string): string {
 
 // ── Natural language format parser ─────────────────────────────────
 
-const SECTION_REGEX = /\[([^\]]+)\]\s*\n([\s\S]*?)(?=\[[^\]]+\]\s*\n|$)/g;
+const SECTION_REGEX = /(?:^|\n)\[([^\]]+)\]\s*\n?([\s\S]*?)(?=\n\[[^\]]+\]|$)/g;
+
+// Required TAGs that must be present in a valid response
+const REQUIRED_TAGS = [
+  "AESTHETIC HOOK",
+  "FRAME",
+  "LIGHTING",
+  "COLOR",
+  "STYLE & TEXTURE",
+  "PROMPT TAGS",
+  "NEGATIVE PROMPT",
+  "CONSTRAINTS",
+] as const;
+
+// Content TAGs that must be present (SUBJECT 1 is matched by prefix)
+const REQUIRED_CONTENT_PREFIXES = [
+  "SUBJECT",
+  "IMPERFECTIONS & PHYSICS",
+] as const;
+
+// Minimum character count for a TAG's content to be considered substantive
+const MIN_CONTENT_LENGTH = 30;
+
+function validateSections(sections: Record<string, string>): string[] {
+  const warnings: string[] = [];
+  const presentTags = new Set(Object.keys(sections));
+
+  // Check required style TAGs
+  for (const tag of REQUIRED_TAGS) {
+    if (!presentTags.has(tag)) {
+      warnings.push(`缺少必填模块 [${tag}]`);
+    } else if (sections[tag].length < MIN_CONTENT_LENGTH) {
+      warnings.push(`[${tag}] 内容过短（${sections[tag].length} 字符）`);
+    }
+  }
+
+  // Check required content TAGs (prefix match)
+  for (const prefix of REQUIRED_CONTENT_PREFIXES) {
+    const found = Object.keys(sections).some(tag => tag.startsWith(prefix));
+    if (!found) {
+      warnings.push(`缺少必填模块 [${prefix}]`);
+    }
+  }
+
+  // Check SUBJECT 1 content length specifically
+  const subject1 = Object.keys(sections).find(k => k.startsWith("SUBJECT"));
+  if (subject1 && sections[subject1].length < MIN_CONTENT_LENGTH) {
+    warnings.push(`[${subject1}] 内容过短（${sections[subject1].length} 字符）`);
+  }
+
+  return warnings;
+}
 
 function parseSectionedText(rawText: string): Record<string, string> {
   const sections: Record<string, string> = {};
@@ -43,10 +94,12 @@ function parseSectionedText(rawText: string): Record<string, string> {
 }
 
 function extractShortPromptFromSections(sections: Record<string, string>): string {
-  const mainSubject = Object.keys(sections).find(k => k.startsWith("SUBJECT 1"))?.split(":")[1]?.trim() || "";
+  const subjectKey = Object.keys(sections).find(k => k.startsWith("SUBJECT"));
+  const subjectContent = subjectKey ? sections[subjectKey] : "";
+  const subjectLabel = subjectContent.split(/\n/)[0]?.trim() || "";
   const framework = sections["FRAME"] || "";
   const firstSentence = framework.split(/[.。]/)[0] || "";
-  return `${firstSentence} ${mainSubject}`.trim() || "Image analysis";
+  return `${firstSentence} ${subjectLabel}`.trim() || "Image analysis";
 }
 
 function extractNegativePromptFromSections(sections: Record<string, string>): string {
@@ -54,13 +107,12 @@ function extractNegativePromptFromSections(sections: Record<string, string>): st
 }
 
 const STYLE_TAGS = new Set([
-  "AESTHETIC HOOK", "STYLE & TEXTURE", "STYLE", "ATMOSPHERE", "COLOR",
-  "LIGHTING", "FRAME", "VISUAL HIERARCHY", "MATERIAL RESPONSE",
-  "ERA SIGNALS", "IMAGE PHYSICS", "OPTICAL DEPTH", "FILTER & PROCESSING",
-  "STYLE EXCLUSIONS", "PROMPT TAGS", "NEGATIVE PROMPT"
+  "ARCHETYPE", "AESTHETIC HOOK", "STYLE & TEXTURE", "STYLE", "ATMOSPHERE", "COLOR",
+  "LIGHTING", "FRAME", "COMPOSITION", "MATERIAL RESPONSE",
+  "ERA SIGNALS", "PROMPT TAGS", "NEGATIVE PROMPT"
 ]);
 
-const CONTENT_TAG_PREFIXES = ["SUBJECT", "SPATIAL LAYERS", "ENVIRONMENT", "IMPERFECTIONS", "CONSTRAINTS"];
+const CONTENT_TAG_PREFIXES = ["SUBJECT", "SPATIAL LAYERS", "ENVIRONMENT", "IMPERFECTIONS & PHYSICS", "CONSTRAINTS"];
 
 function isContentTag(tag: string): boolean {
   return CONTENT_TAG_PREFIXES.some(prefix => tag.startsWith(prefix));
@@ -99,6 +151,7 @@ export function parseImageResponse(rawText: string): ImagePromptResponse {
   }
 
   const { styleText, contentText } = splitSectionsByGroup(sections);
+  const warnings = validateSections(sections);
 
   return {
     rawText,
@@ -108,6 +161,7 @@ export function parseImageResponse(rawText: string): ImagePromptResponse {
     negativePrompt: extractNegativePromptFromSections(sections),
     styleText,
     contentText,
+    warnings,
   };
 }
 

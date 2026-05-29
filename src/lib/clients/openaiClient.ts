@@ -14,7 +14,7 @@ import {
   type DetectedImageInfo,
   type DetectedVideoInfo,
   type ExtractedFrame,
-  type ImageCategory,
+  // type ImageCategory,
   type TargetModelId
 } from "../types";
 import { resizeImageDataUrl } from "../media/imageUtils";
@@ -34,7 +34,9 @@ function readOpenAIError(payload: unknown): string | null {
       const err = obj.error as Record<string, unknown>;
       if (typeof err.message === "string") return err.message;
     }
-    if (typeof obj.message === "string") return obj.message;
+    // Only treat top-level "message" as error when response has no "choices"
+    // (successful chat completions may include a "message" field alongside "choices")
+    if (typeof obj.message === "string" && !("choices" in obj)) return obj.message;
   }
   return null;
 }
@@ -146,7 +148,7 @@ export async function analyzeImage({
   targetModel,
   imageDataUrl,
   imageInfo,
-  category,
+  // category,
   signal,
 }: {
   apiKey: string;
@@ -155,11 +157,11 @@ export async function analyzeImage({
   targetModel: TargetModelId;
   imageDataUrl: string;
   imageInfo?: DetectedImageInfo;
-  category?: ImageCategory;
+  // category?: ImageCategory;
   signal?: AbortSignal;
 }): Promise<ReturnType<typeof parseGeminiImageResponse>> {
   const endpoint = `${baseUrl}/chat/completions`;
-  const instruction = buildImageInstruction(targetModel, imageInfo, category);
+  const instruction = buildImageInstruction(targetModel, imageInfo);
 
   const compressedDataUrl = await resizeImageDataUrl(imageDataUrl);
   const { mimeType, base64 } = dataUrlToBase64(compressedDataUrl);
@@ -186,7 +188,7 @@ export async function analyzeImage({
           ],
         },
       ],
-      temperature: 0.4,
+      temperature: 0.5,
       top_p: 0.9,
       max_tokens: 32768,
     }),
@@ -225,7 +227,7 @@ export async function analyzeImageStream({
   targetModel,
   imageDataUrl,
   imageInfo,
-  category,
+  // category,
   signal,
   onProgress,
 }: {
@@ -235,12 +237,12 @@ export async function analyzeImageStream({
   targetModel: TargetModelId;
   imageDataUrl: string;
   imageInfo?: DetectedImageInfo;
-  category?: ImageCategory;
+  // category?: ImageCategory;
   signal?: AbortSignal;
   onProgress?: (text: string) => void;
 }): Promise<ReturnType<typeof parseGeminiImageResponse>> {
   const endpoint = `${baseUrl}/chat/completions`;
-  const instruction = buildImageInstruction(targetModel, imageInfo, category);
+  const instruction = buildImageInstruction(targetModel, imageInfo);
 
   const compressedDataUrl = await resizeImageDataUrl(imageDataUrl);
   const { mimeType, base64 } = dataUrlToBase64(compressedDataUrl);
@@ -267,7 +269,7 @@ export async function analyzeImageStream({
           ],
         },
       ],
-      temperature: 0.4,
+      temperature: 0.5,
       top_p: 0.9,
       max_tokens: 32768,
       stream: true,
